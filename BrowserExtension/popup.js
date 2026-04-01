@@ -11,11 +11,14 @@ async function render() {
 
   for (const tab of tabs) {
     const tr = document.createElement('tr');
-    tr.innerHTML = `
-      <td class="win-id">${winIndex[tab.windowId] ?? tab.windowId}</td>
-      <td>${tab.id}</td>
-      <td>${tab.title ?? ''}</td>
-    `;
+    const tdWin   = document.createElement('td');
+    const tdId    = document.createElement('td');
+    const tdTitle = document.createElement('td');
+    tdWin.className   = 'win-id';
+    tdWin.textContent   = winIndex[tab.windowId] ?? tab.windowId;
+    tdId.textContent    = tab.id;
+    tdTitle.textContent = tab.title ?? '';
+    tr.append(tdWin, tdId, tdTitle);
     tbody.appendChild(tr);
   }
 
