@@ -1,20 +1,22 @@
 ; app-hotkeys.ahk - General application hotkeys (non-Star Citizen)
 
-; --- Browser tab focus (profile 1) ---
-^!+m:: FocusTab("YOUR_BROWSER_PROFILE", "google.com/maps",  "https://YOUR_URL")
-^!+v:: FocusTab("YOUR_BROWSER_PROFILE", "chat.google.com",  "https://YOUR_URL")
-^!+g:: FocusTab("YOUR_BROWSER_PROFILE", "mail.google.com",  "https://YOUR_URL")
-^!+y:: FocusTab("YOUR_BROWSER_PROFILE", "youtube.com",      "https://YOUR_URL")
-^!+r:: FocusTab("YOUR_BROWSER_PROFILE", "reddit.com",       "https://YOUR_URL")
+; --- Brave tab focus (dab profile) ---
+^!+m:: FocusTab("YOUR_BROWSER_PROFILE", "google.com/maps",     "https://YOUR_URL")
+^!+v:: FocusTab("YOUR_BROWSER_PROFILE", "chat.google.com",     "https://YOUR_URL")
+^!+g:: FocusTab("YOUR_BROWSER_PROFILE", "mail.google.com",     "https://YOUR_URL")
+^!+y:: FocusTab("YOUR_BROWSER_PROFILE", "youtube.com",         "https://YOUR_URL")
+^!+r:: FocusTab("YOUR_BROWSER_PROFILE", "reddit.com",          "https://YOUR_URL")
+^!+x:: FocusTab("YOUR_BROWSER_PROFILE", "messages.google.com", "https://YOUR_URL")
 
-; --- Browser tab focus (profile 2) ---
+; --- Brave tab focus (zb profile) ---
 ^!+o:: FocusTab("YOUR_BROWSER_PROFILE", "outlook.cloud.microsoft", "https://YOUR_URL")
 ^!+u:: FocusTab("YOUR_BROWSER_PROFILE", "teams.microsoft.com",     "https://YOUR_URL")
 ^!+s:: FocusTab("YOUR_BROWSER_PROFILE", "app.slack.com",           "https://YOUR_URL")
-^!+j:: FocusTab("YOUR_BROWSER_PROFILE", "https://YOUR_URL",        "https://YOUR_URL")
+^!+j:: FocusTab("YOUR_BROWSER_PROFILE", "https://YOUR_URL",  "https://YOUR_URL")
 ^!+b:: FocusTab("YOUR_BROWSER_PROFILE", "bitbucket.org",           "https://YOUR_URL")
+^!+z:: FocusTab("YOUR_BROWSER_PROFILE", "app.zoom.us",             "https://YOUR_URL")
 
-; --- Browser window cycling ---
+; --- Brave window cycling ---
 ^!+i::  CycleChromiumProfile("YOUR_BROWSER_PROFILE")
 ^+#i::  CycleChromiumProfile("YOUR_BROWSER_PROFILE")
 
