@@ -1,0 +1,23 @@
+#!/usr/bin/env bash
+# Auto-regenerate sanitized templates when the gitignored source files are staged.
+# Runs make-template.sh and re-stages both template files so the commit always
+# contains up-to-date, sanitized versions.
+
+set -euo pipefail
+
+REPO_ROOT="$(git rev-parse --show-toplevel)"
+
+# Check whether either source file appears in the staged index
+staged=$(git diff --cached --name-only)
+
+needs_regen=false
+if echo "$staged" | grep -qE '^lib/(app-hotkeys|config)\.ahk$'; then
+    needs_regen=true
+fi
+
+if $needs_regen; then
+    echo "[pre-commit] Regenerating sanitized templates..."
+    bash "$REPO_ROOT/make-template.sh"
+    git add "$REPO_ROOT/lib/app-hotkeys.template.ahk" "$REPO_ROOT/lib/config.template.ahk"
+    echo "[pre-commit] Templates updated and staged."
+fi
