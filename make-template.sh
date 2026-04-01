@@ -10,7 +10,8 @@ sanitize_paths() {
   sed \
     -e 's|"https\?://\(localhost\|127\.0\.0\.1\)[^"]*"|\0|g' \
     -e 's|"https\?://[^"]*"|"https://YOUR_URL"|g' \
-    -e 's|"[A-Za-z]:\\[^"]*"|"C:\\YOUR\\PATH"|g'
+    -e 's|"[A-Za-z]:\\[^"]*"|"C:\\YOUR\\PATH"|g' \
+    -e 's|"\\[A-Za-z][^"\\]*\\[^"]*"|"C:\\YOUR\\PATH"|g'
 }
 
 # app-hotkeys.ahk → app-hotkeys.template.ahk
