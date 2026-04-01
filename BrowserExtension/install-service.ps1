@@ -140,9 +140,17 @@ switch ($Action) {
         $task = Get-ScheduledTask -TaskName $TaskName -ErrorAction SilentlyContinue
         if ($task -and $task.State -eq "Running") {
             Stop-ScheduledTask -TaskName $TaskName
-            Write-Host "Stopped."
+            Write-Host "Task stopped."
         } else {
             Write-Host "Task is not running."
+        }
+        # Kill any orphaned PowerShell processes still holding the port
+        # (e.g. from a manual startServer.ps1 run alongside the scheduled task).
+        $orphans = Get-CimInstance Win32_Process -Filter "Name = 'powershell.exe'" |
+                   Where-Object { $_.CommandLine -like "*server.ps1*" }
+        foreach ($proc in $orphans) {
+            Stop-Process -Id $proc.ProcessId -Force
+            Write-Host "Killed orphaned server.ps1 process (PID $($proc.ProcessId))."
         }
     }
 }
