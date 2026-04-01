@@ -1,6 +1,20 @@
 $port = 9876
 $url  = "http://localhost:$port/"
 
+# Generate token.txt on first run; read it on subsequent runs.
+$tokenPath = Join-Path $PSScriptRoot "token.txt"
+if (-not (Test-Path $tokenPath)) {
+    $rng   = [Security.Cryptography.RNGCryptoServiceProvider]::new()
+    $bytes = [byte[]]::new(32)
+    $rng.GetBytes($bytes)
+    $rng.Dispose()
+    $newToken = [Convert]::ToBase64String($bytes)
+    Set-Content -Path $tokenPath -Value $newToken -Encoding UTF8 -NoNewline
+    Write-Host "Generated new auth token: $newToken"
+    Write-Host "Paste this token into the extension Options page."
+}
+$secret = (Get-Content $tokenPath -Raw -Encoding UTF8).Trim()
+
 $listener = New-Object System.Net.HttpListener
 $listener.Prefixes.Add($url)
 
@@ -38,12 +52,24 @@ try { while ($listener.IsListening) {
         if ($origin -like "chrome-extension://*") {
             $res.Headers.Add("Access-Control-Allow-Origin",  $origin)
             $res.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-            $res.Headers.Add("Access-Control-Allow-Headers", "Content-Type")
+            $res.Headers.Add("Access-Control-Allow-Headers", "Content-Type, X-AltTabSucks-Token")
+            $res.Headers.Add("Access-Control-Max-Age",       "86400")
             $res.Headers.Add("Vary", "Origin")
         }
 
         $path   = $req.Url.AbsolutePath
         $method = $req.HttpMethod
+
+        # Validate shared secret on every non-preflight request.
+        # AHK (WinHttp) sends no Origin header and is unaffected by CORS but still sends the token.
+        if ($method -ne "OPTIONS") {
+            $reqToken = $req.Headers["X-AltTabSucks-Token"]
+            if ($reqToken -ne $secret) {
+                $res.StatusCode = 403
+                $res.OutputStream.Close()
+                continue
+            }
+        }
 
         if ($method -eq "OPTIONS") {
             $res.StatusCode = 204

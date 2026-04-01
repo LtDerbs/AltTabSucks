@@ -92,7 +92,15 @@ switch ($Action) {
         $state = $info.State
         Write-Host "Task state: $state"
         if ($state -eq "Running") {
-            Write-Host "AltTabSucks is running. Test: curl http://localhost:9876/tabs"
+            Write-Host "AltTabSucks is running."
+            $tokenPath = Join-Path $PSScriptRoot "token.txt"
+            if (Test-Path $tokenPath) {
+                $token = (Get-Content $tokenPath -Raw -Encoding UTF8).Trim()
+                Write-Host "Auth token (paste into extension Options): $token"
+            } else {
+                Write-Host "token.txt not yet created — the server generates it on first start."
+                Write-Host "Wait a moment, then run: Get-Content '$tokenPath'"
+            }
         } else {
             Write-Warning "Task did not reach Running state. Check Event Viewer > Task Scheduler."
         }

@@ -48,6 +48,7 @@
     try {
         http := ComObject("WinHttp.WinHttpRequest.5.1")
         http.Open("GET", "https://YOUR_URL", false)
+        http.SetRequestHeader("X-AltTabSucks-Token", _serverToken)
         http.Send()
         if http.Status = 200
             tabDebug := Trim(StrReplace(http.ResponseText, "`r", ""))

@@ -25,8 +25,9 @@ async function render() {
   // show server status
   const status = document.getElementById('status');
   try {
-    const r = await fetch(SERVER);
-    status.textContent = r.ok ? 'server: connected' : 'server: error';
+    const { authToken = '' } = await chrome.storage.local.get('authToken');
+    const r = await fetch(SERVER, { headers: { 'X-AltTabSucks-Token': authToken } });
+    status.textContent = r.ok ? 'server: connected' : `server: error (${r.status})`;
     status.className = r.ok ? 'ok' : 'err';
   } catch {
     status.textContent = 'server: not running';

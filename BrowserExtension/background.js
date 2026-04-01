@@ -1,7 +1,7 @@
 const SERVER = 'http://localhost:9876/tabs';
 
 async function postTabs() {
-  const { profileName = 'Default' } = await chrome.storage.local.get('profileName');
+  const { profileName = 'Default', authToken = '' } = await chrome.storage.local.get(['profileName', 'authToken']);
 
   const [tabs, windows] = await Promise.all([
     chrome.tabs.query({}),
@@ -29,7 +29,7 @@ async function postTabs() {
   try {
     await fetch(SERVER, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json', 'X-AltTabSucks-Token': authToken },
       body: JSON.stringify(data)
     });
   } catch {
@@ -38,9 +38,11 @@ async function postTabs() {
 }
 
 async function pollSwitchQueue() {
-  const { profileName = 'Default' } = await chrome.storage.local.get('profileName');
+  const { profileName = 'Default', authToken = '' } = await chrome.storage.local.get(['profileName', 'authToken']);
   try {
-    const res = await fetch(`http://localhost:9876/switchtab?profile=${encodeURIComponent(profileName)}`);
+    const res = await fetch(`http://localhost:9876/switchtab?profile=${encodeURIComponent(profileName)}`, {
+      headers: { 'X-AltTabSucks-Token': authToken }
+    });
     if (res.status === 200) {
       const cmd = await res.json();
       if (cmd && cmd.tabId) {

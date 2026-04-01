@@ -6,12 +6,14 @@ global _focusTabLast            := Map()
 global _chromiumProfileDirCache := Map()
 global _chromiumExe             := ""
 global _origFgLockTimeout       := 0
+global _serverToken             := ""
 
 ; Returns array of active-tab titles for the given profile (via AltTabSucks server)
 GetProfileWindowTitles(profileName) {
     try {
         http := ComObject("WinHttp.WinHttpRequest.5.1")
         http.Open("GET", "http://localhost:9876/activetitles?profile=" . profileName, false)
+        http.SetRequestHeader("X-AltTabSucks-Token", _serverToken)
         http.Send()
         result := Trim(StrReplace(http.ResponseText, "`r", ""))
         if result = ""
@@ -60,13 +62,17 @@ _RestoreFgLockTimeout(ExitReason, ExitCode) {
 }
 
 _InitChromiumState() {
-    global _chromiumExe, _chromiumProfileDirCache, _origFgLockTimeout
+    global _chromiumExe, _chromiumProfileDirCache, _origFgLockTimeout, _serverToken
     ; Disable foreground-lock timeout so WinActivate/SwitchToThisWindow can always steal
     ; focus. Default is 200 000 ms which blocks focus-steal for the entire lock period.
     ; Save the original value first so _RestoreFgLockTimeout can put it back on exit.
     DllCall("SystemParametersInfo", "UInt", 0x2000, "UInt", 0, "UIntP", &_origFgLockTimeout, "UInt", 0)
     DllCall("SystemParametersInfo", "UInt", 0x2001, "UInt", 0, "Ptr", 0, "UInt", 0)
     OnExit(_RestoreFgLockTimeout)
+
+    tokenPath := A_ScriptDir . "\BrowserExtension\token.txt"
+    if FileExist(tokenPath)
+        _serverToken := Trim(FileRead(tokenPath, "UTF-8"))
 
     SplitPath(CHROMIUM_EXE, &exeName)
     _chromiumExe := exeName
@@ -210,6 +216,7 @@ FocusTab(profileName, urlPattern, openUrl) {
     try {
         http := ComObject("WinHttp.WinHttpRequest.5.1")
         http.Open("GET", findtabUrl, false)
+        http.SetRequestHeader("X-AltTabSucks-Token", _serverToken)
         http.Send()
         result := Trim(StrReplace(http.ResponseText, "`r", ""))
         dbg .= "status=" . http.Status . "  body='" . result . "'`n`n"
@@ -256,6 +263,7 @@ FocusTab(profileName, urlPattern, openUrl) {
     http2 := ComObject("WinHttp.WinHttpRequest.5.1")
     http2.Open("POST", "http://localhost:9876/switchtab", false)
     http2.SetRequestHeader("Content-Type", "application/json")
+    http2.SetRequestHeader("X-AltTabSucks-Token", _serverToken)
     http2.Send(postBody)
 
     ; Poll every 50ms until a Chromium window becomes active (meaning the extension has
