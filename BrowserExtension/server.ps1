@@ -49,12 +49,16 @@ try { while ($listener.IsListening) {
             $res.StatusCode = 204
 
         } elseif ($method -eq "POST" -and $path -eq "/tabs") {
-            $reader  = [System.IO.StreamReader]::new($req.InputStream, [System.Text.Encoding]::UTF8)
-            $body    = $reader.ReadToEnd()
-            $reader.Close()
-            $payload = $body | ConvertFrom-Json
-            $store[$payload.profile] = $payload.windows
-            $res.StatusCode = 204
+            if ($req.ContentLength64 -gt 1MB) {
+                $res.StatusCode = 413
+            } else {
+                $reader  = [System.IO.StreamReader]::new($req.InputStream, [System.Text.Encoding]::UTF8)
+                $body    = $reader.ReadToEnd()
+                $reader.Close()
+                $payload = $body | ConvertFrom-Json
+                $store[$payload.profile] = $payload.windows
+                $res.StatusCode = 204
+            }
 
         } elseif ($method -eq "GET" -and $path -eq "/tabs") {
             # return all profiles merged: { "Default": [...], "Work": [...] }
@@ -112,12 +116,16 @@ try { while ($listener.IsListening) {
 
         } elseif ($method -eq "POST" -and $path -eq "/switchtab") {
             # queue a tab-switch command for the extension to pick up
-            $reader  = [System.IO.StreamReader]::new($req.InputStream, [System.Text.Encoding]::UTF8)
-            $body    = $reader.ReadToEnd()
-            $reader.Close()
-            $payload = $body | ConvertFrom-Json
-            $switchQueue[$payload.profile] = @{ windowId = $payload.windowId; tabId = $payload.tabId }
-            $res.StatusCode = 204
+            if ($req.ContentLength64 -gt 4KB) {
+                $res.StatusCode = 413
+            } else {
+                $reader  = [System.IO.StreamReader]::new($req.InputStream, [System.Text.Encoding]::UTF8)
+                $body    = $reader.ReadToEnd()
+                $reader.Close()
+                $payload = $body | ConvertFrom-Json
+                $switchQueue[$payload.profile] = @{ windowId = $payload.windowId; tabId = $payload.tabId }
+                $res.StatusCode = 204
+            }
 
         } elseif ($method -eq "GET" -and $path -eq "/switchtab") {
             # extension polls this to dequeue a pending switch command
