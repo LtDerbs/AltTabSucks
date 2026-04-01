@@ -30,9 +30,17 @@ try { while ($listener.IsListening) {
         $req = $ctx.Request
         $res = $ctx.Response
 
-        $res.Headers.Add("Access-Control-Allow-Origin",  "*")
-        $res.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        $res.Headers.Add("Access-Control-Allow-Headers", "Content-Type")
+        # Only grant CORS to browser extension origins.
+        # Webpage origins (https://evil.com) are denied: browser blocks their response reads
+        # and rejects their preflights, preventing tab enumeration and forced tab switches.
+        # AHK uses WinHttp which sends no Origin header and ignores CORS entirely.
+        $origin = $req.Headers["Origin"]
+        if ($origin -like "chrome-extension://*") {
+            $res.Headers.Add("Access-Control-Allow-Origin",  $origin)
+            $res.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            $res.Headers.Add("Access-Control-Allow-Headers", "Content-Type")
+            $res.Headers.Add("Vary", "Origin")
+        }
 
         $path   = $req.Url.AbsolutePath
         $method = $req.HttpMethod
