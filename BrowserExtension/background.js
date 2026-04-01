@@ -1,0 +1,75 @@
+const SERVER = 'http://localhost:9876/tabs';
+
+async function postTabs() {
+  const { profileName = 'Default' } = await chrome.storage.local.get('profileName');
+
+  const [tabs, windows] = await Promise.all([
+    chrome.tabs.query({}),
+    chrome.windows.getAll()
+  ]);
+
+  const data = {
+    profile: profileName,
+    windows: windows.map(w => ({
+      id: w.id,
+      focused: w.focused,
+      tabs: tabs
+        .filter(t => t.windowId === w.id)
+        .map(t => ({
+          id: t.id,
+          url: (() => { try { const u = new URL(t.url); const seg = u.pathname.split('/')[1]; return u.origin + (seg ? '/' + seg : ''); } catch { return t.url; } })(),
+          title: t.title,
+          active: t.active,
+          pinned: t.pinned,
+          index: t.index
+        }))
+    }))
+  };
+
+  try {
+    await fetch(SERVER, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(data)
+    });
+  } catch {
+    // server not running, will retry on next tab event
+  }
+}
+
+async function pollSwitchQueue() {
+  const { profileName = 'Default' } = await chrome.storage.local.get('profileName');
+  try {
+    const res = await fetch(`http://localhost:9876/switchtab?profile=${encodeURIComponent(profileName)}`);
+    if (res.status === 200) {
+      const cmd = await res.json();
+      if (cmd && cmd.tabId) {
+        await chrome.tabs.update(cmd.tabId, { active: true });
+        await chrome.windows.update(cmd.windowId, { focused: true });
+      }
+    }
+  } catch {
+    // server not running
+  }
+}
+
+setInterval(pollSwitchQueue, 50);
+
+// Keep service worker alive between tab events so pollSwitchQueue keeps running.
+// Without this, Chrome suspends the worker and setInterval stops firing.
+function keepAlive() {
+  chrome.runtime.getPlatformInfo(() => setTimeout(keepAlive, 20000));
+}
+keepAlive();
+
+postTabs();
+
+chrome.tabs.onCreated.addListener(postTabs);
+chrome.tabs.onRemoved.addListener(postTabs);
+chrome.tabs.onMoved.addListener(postTabs);
+chrome.tabs.onAttached.addListener(postTabs);
+chrome.tabs.onDetached.addListener(postTabs);
+chrome.windows.onCreated.addListener(postTabs);
+chrome.windows.onRemoved.addListener(postTabs);
+chrome.windows.onFocusChanged.addListener(postTabs);
+

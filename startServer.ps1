@@ -1,0 +1,1 @@
+powershell -NoExit -File ".\BrowserExtension\server.ps1"
