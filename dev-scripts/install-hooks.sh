@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-REPO_ROOT="$(cd "$(dirname "$0")" && pwd)"
+REPO_ROOT="$(cd "$(dirname "$0")/.." && pwd)"
 
 for hook in "$REPO_ROOT/hooks/"*; do
     name="$(basename "$hook")"

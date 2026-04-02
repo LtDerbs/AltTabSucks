@@ -38,7 +38,7 @@
 
 ; Sleep screens
 ^!+Esc:: {
-    psScript := psScript := A_ScriptDir "\screenOff.ps1"
+    psScript := psScript := A_ScriptDir "C:\YOUR\PATH"
     Run("powershell.exe -ExecutionPolicy Bypass -File `" " psScript "`"",, "Hide")
 }
 

@@ -9,6 +9,6 @@ REPO_ROOT="$(git rev-parse --show-toplevel)"
 
 if [ -f "$REPO_ROOT/lib/app-hotkeys.ahk" ] || [ -f "$REPO_ROOT/lib/config.ahk" ]; then
     echo "[pre-commit] Regenerating sanitized templates..."
-    bash "$REPO_ROOT/make-template.sh"
+    bash "$REPO_ROOT/dev-scripts/make-template.sh"
     git add "$REPO_ROOT/lib/app-hotkeys.template.ahk" "$REPO_ROOT/lib/config.template.ahk"
 fi

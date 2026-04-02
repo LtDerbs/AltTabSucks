@@ -4,7 +4,7 @@
 
 set -euo pipefail
 
-root="$(dirname "$0")/lib"
+root="$(cd "$(dirname "$0")/.." && pwd)/lib"
 
 sanitize_paths() {
   sed \

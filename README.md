@@ -21,9 +21,9 @@ AutoHotkey v2 automation scripts for Windows productivity — window cycling, Ch
 | `Server/startServer.ps1`               | Manually start the server (no scheduled task)                                                         |
 | `BrowserExtension/background.js`       | Chromium MV3 extension service worker                                                                 |
 | `screenOff.ps1`                        | Turn off monitor                                                                                      |
-| `make-template.sh`                     | Regenerate sanitized templates from the gitignored source files                                       |
+| `dev-scripts/make-template.sh`         | Regenerate sanitized templates from the gitignored source files                                       |
 | `hooks/pre-commit`                     | Git pre-commit hook — auto-runs `make-template.sh` on commit                                          |
-| `install-hooks.sh`                     | Install tracked hooks into `.git/hooks/` (run once after cloning)                                     |
+| `dev-scripts/install-hooks.sh`         | Install tracked hooks into `.git/hooks/` (run once after cloning)                                     |
 
 
 ---
@@ -130,7 +130,7 @@ Edit `lib/app-hotkeys.ahk` (gitignored — contains real URLs/paths, never commi
 
 **Triggering template regeneration**
 
-The pre-commit hook (`hooks/pre-commit`) runs `make-template.sh` automatically whenever a commit or amend is made, so the templates are always in sync at commit time. The typical workflow after editing `lib/app-hotkeys.ahk`:
+The pre-commit hook (`hooks/pre-commit`) runs `dev-scripts/make-template.sh` automatically whenever a commit or amend is made, so the templates are always in sync at commit time. The typical workflow after editing `lib/app-hotkeys.ahk`:
 
 ```bash
 # Stage any other tracked changes, then amend the top commit to include the template update:
@@ -141,10 +141,10 @@ git commit --amend --no-edit
 To regenerate templates manually without committing:
 
 ```bash
-./make-template.sh
+./dev-scripts/make-template.sh
 ```
 
-Run `bash install-hooks.sh` once after cloning to activate the hook.
+Run `bash dev-scripts/install-hooks.sh` once after cloning to activate the hook.
 
 ---
 
