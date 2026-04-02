@@ -78,7 +78,9 @@ chrome.windows.onRemoved.addListener(postTabs);
 chrome.windows.onFocusChanged.addListener(postTabs);
 // Re-post when an active tab's title changes so the server never holds a stale
 // title that fails to match the window (e.g. Gmail unread count updating while idle).
+// Also re-post on any URL change so a loading tab is findable before its title arrives,
+// preventing a second hotkey press from opening a duplicate.
 chrome.tabs.onUpdated.addListener((tabId, changeInfo, tab) => {
-  if (changeInfo.title && tab.active) postTabs();
+  if (changeInfo.url || (changeInfo.title && tab.active)) postTabs();
 });
 

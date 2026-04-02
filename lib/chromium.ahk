@@ -3,6 +3,7 @@
 
 global _chromiumCache           := Map()
 global _focusTabLast            := Map()
+global _focusTabOpenedAt        := Map()
 global _chromiumProfileDirCache := Map()
 global _chromiumExe             := ""
 global _origFgLockTimeout       := 0
@@ -225,8 +226,13 @@ FocusTab(profileName, urlPattern, openUrl) {
         return
     }
 
-    ; No matching tabs - open a new tab in any existing profile window
+    ; No matching tabs - open a new tab in any existing profile window.
+    ; Guard against rapid repeated keypresses opening duplicates while the first
+    ; tab is still loading and hasn't been posted back to the server yet.
     if result = "" {
+        cooldownKey := profileName . ":" . urlPattern
+        if _focusTabOpenedAt.Has(cooldownKey) && (A_TickCount - _focusTabOpenedAt[cooldownKey]) < 2000
+            return
         dbg .= "no matching tabs - attempting to open " . openUrl . "`n"
         profileTitles := GetProfileWindowTitles(profileName)
         if profileTitles.Length = 0
@@ -234,6 +240,7 @@ FocusTab(profileName, urlPattern, openUrl) {
         hwnd := FindHwndByAnyTitle(profileTitles)
         if hwnd = 0
             return
+        _focusTabOpenedAt[cooldownKey] := A_TickCount
         WinActivate("ahk_id " hwnd)
         Run(openUrl)
         return
