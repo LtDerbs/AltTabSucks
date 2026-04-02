@@ -17,7 +17,7 @@ AutoHotkey v2 automation scripts for Windows productivity — window cycling, Ch
 | `lib/app-hotkeys.template.ahk` | Sanitized version of above, tracked in git |
 | `BrowserExtension/server.ps1` | PowerShell HTTP server on `localhost:9876` |
 | `BrowserExtension/background.js` | Chromium MV3 extension service worker |
-| `BrowserExtension/install-service.ps1` | Registers `server.ps1` as a Windows scheduled task |
+| `BrowserExtension/install-service.ps1` | Full install: scheduled task + startup script + immediate launch |
 | `startServer.ps1` | Manually start the server (no scheduled task) |
 | `screenOff.ps1` | Turn off monitor |
 | `make-template.sh` | Regenerate sanitized templates from the gitignored source files |
@@ -34,14 +34,7 @@ AutoHotkey v2 automation scripts for Windows productivity — window cycling, Ch
 
 ## Quick Start
 
-### 1. Run the AHK script
-
-Double-click `AltTabSucks.ahk` in Windows Explorer. It self-elevates to admin.
-
-- **Reload**: `Ctrl+Alt+Shift+'`
-- **Debug**: Right-click tray icon → Window Spy
-
-### 2. Configure your browser
+### 1. Configure your browser
 
 Copy `lib/config.template.ahk` to `lib/config.ahk` and fill in the paths for your Chromium-based browser:
 
@@ -50,7 +43,7 @@ global CHROMIUM_EXE      := "C:\Program Files\BraveSoftware\Brave-Browser\Applic
 global CHROMIUM_USERDATA := "C:\Users\YourName\AppData\Local\BraveSoftware\Brave-Browser\User Data"
 ```
 
-### 3. Register the AltTabSucks server
+### 2. Run the installer
 
 Run from any PowerShell prompt (triggers a UAC prompt):
 
@@ -58,14 +51,16 @@ Run from any PowerShell prompt (triggers a UAC prompt):
 powershell -ExecutionPolicy Bypass -File ".\BrowserExtension\install-service.ps1"
 ```
 
-This does two things:
+This does three things:
 
 1. Registers a Task Scheduler task named **AltTabSucks** that runs `server.ps1`:
    - Starts automatically at logon (runs hidden, no console window)
    - Restarts automatically if it crashes (up to 10 times, 1 minute apart)
    - Runs with elevated privileges so `HttpListener` can bind to port 9876
 
-2. Writes `AltTabSucks.bat` to your `shell:startup` folder. This script polls every second for the repo directory to appear (the mapped drive may not be ready immediately at logon), then launches `AltTabSucks.ahk` automatically.
+2. Writes `AltTabSucks.bat` to your `shell:startup` folder, which polls every second for the repo directory (handles mapped drive delay at logon) then launches `AltTabSucks.ahk` automatically on future logons.
+
+3. Launches `AltTabSucks.ahk` immediately so the current session is live without a logon cycle.
 
 On first run the server generates a random auth token and saves it to `BrowserExtension\token.txt` (gitignored). The token is printed to the console — copy it for the next step. To retrieve it later:
 
@@ -73,12 +68,14 @@ On first run the server generates a random auth token and saves it to `BrowserEx
 Get-Content ".\BrowserExtension\token.txt"
 ```
 
-### 4. Load the browser extension
+### 3. Load the browser extension
 
 1. Go to your browser's extensions page (e.g. `brave://extensions`, `chrome://extensions`)
 2. Enable **Developer mode** (top-right toggle)
 3. Click **Load unpacked** and select the `BrowserExtension/` folder
-4. Open the extension **Options** — set your profile name (e.g. `Default`) and paste the auth token from step 3
+4. Open the extension **Options** — set your profile name (e.g. `Default`) and paste the auth token from step 2
+
+After the first install, everything starts automatically at logon. To reload the AHK script manually: `Ctrl+Alt+Shift+'`. To debug: right-click the tray icon → Window Spy.
 
 ---
 
