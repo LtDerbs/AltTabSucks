@@ -13,14 +13,18 @@ AutoHotkey v2 automation scripts for Windows productivity — window cycling, Ch
 | `lib/chromium.ahk` | Chromium profile cycling + tab focus via AltTabSucks |
 | `lib/toast.ahk` | Visual feedback overlays |
 | `lib/star-citizen.ahk` | Star Citizen–scoped hotkeys |
-| `lib/app-hotkeys.ahk` | General app/browser hotkeys (**gitignored** — contains real paths) |
+| `lib/app-hotkeys.ahk` | General app/browser hotkeys (**gitignored** — contains real paths/URLs) |
 | `lib/app-hotkeys.template.ahk` | Sanitized version of above, tracked in git |
-| `BrowserExtension/` | AltTabSucks: PowerShell HTTP server + Chromium extension |
-| `startServer.ps1` | Manually start the AltTabSucks server |
+| `BrowserExtension/server.ps1` | PowerShell HTTP server on `localhost:9876` |
+| `BrowserExtension/background.js` | Chromium MV3 extension service worker |
+| `BrowserExtension/install-service.ps1` | Registers `server.ps1` as a Windows scheduled task |
+| `startServer.ps1` | Manually start the server (no task) |
 | `screenOff.ps1` | Turn off monitor |
-| `make-template.sh` | Regenerate the sanitized hotkeys template |
-| `hooks/pre-commit` | Git pre-commit hook — auto-runs `make-template.sh` |
+| `make-template.sh` | Regenerate sanitized templates from the gitignored source files |
+| `hooks/pre-commit` | Git pre-commit hook — auto-runs `make-template.sh` on commit |
 | `install-hooks.sh` | Install tracked hooks into `.git/hooks/` (run once after cloning) |
+
+---
 
 ## Quick Start
 
@@ -40,17 +44,59 @@ global CHROMIUM_EXE      := "C:\Program Files\BraveSoftware\Brave-Browser\Applic
 global CHROMIUM_USERDATA := "C:\Users\YourName\AppData\Local\BraveSoftware\Brave-Browser\User Data"
 ```
 
-### 3. Set up AltTabSucks (browser tab bridge)
+### 3. Register the AltTabSucks server
 
-See [`BrowserExtension/README.md`](BrowserExtension/README.md) for full setup. Short version:
+Run from any PowerShell prompt (triggers a UAC prompt):
 
 ```powershell
-# Registers a Task Scheduler task that auto-starts at logon (will prompt UAC).
-# Prints an auth token on first run — copy it for the next step.
 powershell -ExecutionPolicy Bypass -File ".\BrowserExtension\install-service.ps1"
 ```
 
-Then load the extension in your browser's extensions page (e.g. `brave://extensions`, `chrome://extensions`) → Developer mode → Load unpacked → `BrowserExtension/` → open the extension **Options** → set your profile name and paste the auth token.
+This registers a Task Scheduler task named **AltTabSucks** that:
+- Starts automatically at logon (runs hidden, no console window)
+- Restarts automatically if it crashes (up to 10 times, 1 minute apart)
+- Runs with elevated privileges so `HttpListener` can bind to port 9876
+
+On first run the server generates a random auth token and saves it to `BrowserExtension\token.txt` (gitignored). The token is printed to the console — copy it for the next step. To retrieve it later:
+
+```powershell
+Get-Content ".\BrowserExtension\token.txt"
+```
+
+### 4. Load the browser extension
+
+1. Go to your browser's extensions page (e.g. `brave://extensions`, `chrome://extensions`)
+2. Enable **Developer mode** (top-right toggle)
+3. Click **Load unpacked** and select the `BrowserExtension/` folder
+4. Open the extension **Options** — set your profile name (e.g. `Default`) and paste the auth token from step 3
+
+---
+
+## Managing the server task
+
+```powershell
+# Check current state (Running / Ready / Disabled)
+.\BrowserExtension\install-service.ps1 -Action status
+
+# Start manually (if stopped)
+.\BrowserExtension\install-service.ps1 -Action start
+
+# Stop the task and kill any orphaned server.ps1 processes
+.\BrowserExtension\install-service.ps1 -Action stop
+
+# Remove the task entirely
+.\BrowserExtension\install-service.ps1 -Action uninstall
+```
+
+You can also manage it in **Task Scheduler** (`taskschd.msc`) under **Task Scheduler Library > AltTabSucks**.
+
+To run the server manually without a task:
+
+```powershell
+powershell -ExecutionPolicy Bypass -File ".\BrowserExtension\server.ps1"
+```
+
+---
 
 ## Hotkey Conventions
 
@@ -64,17 +110,76 @@ Then load the extension in your browser's extensions page (e.g. `brave://extensi
 
 General hotkeys use `Ctrl+Alt+Shift+<key>`. App-scoped hotkeys are wrapped in `#HotIf WinActive(...)`.
 
+---
+
 ## Adding Hotkeys
 
-Add new hotkeys to `lib/app-hotkeys.ahk` (gitignored). The pre-commit hook (`hooks/pre-commit`) runs `make-template.sh` automatically on every commit, so the sanitized templates are always kept in sync. Run `bash install-hooks.sh` once after cloning to activate it.
+Edit `lib/app-hotkeys.ahk` (gitignored — contains real URLs/paths, never committed directly). The tracked counterpart is `lib/app-hotkeys.template.ahk`, which has all sensitive values redacted.
 
-To regenerate templates manually:
+**Triggering template regeneration**
+
+The pre-commit hook (`hooks/pre-commit`) runs `make-template.sh` automatically whenever a commit or amend is made, so the templates are always in sync at commit time. The typical workflow after editing `lib/app-hotkeys.ahk`:
 
 ```bash
-./make-template.sh   # redacts URLs/paths/profiles → lib/app-hotkeys.template.ahk and lib/config.template.ahk
+# Stage any other tracked changes, then amend the top commit to include the template update:
+git commit --amend --no-edit
+# The hook fires, regenerates both templates, and stages them into the amend automatically.
 ```
 
-Commit only `app-hotkeys.template.ahk` and `config.template.ahk`.
+To regenerate templates manually without committing:
+
+```bash
+./make-template.sh
+```
+
+Run `bash install-hooks.sh` once after cloning to activate the hook.
+
+---
+
+## Troubleshooting
+
+**Task registers but does not reach Running state**
+
+Open Event Viewer: `eventvwr.msc` → **Windows Logs > Application**, or
+**Applications and Services Logs > Microsoft > Windows > TaskScheduler > Operational**.
+Look for errors referencing the AltTabSucks task.
+
+**Port 9876 already in use**
+
+Another instance of `server.ps1` is running. Stop it:
+
+```powershell
+.\BrowserExtension\install-service.ps1 -Action stop
+# or find the PID manually:
+netstat -ano | findstr :9876
+# then: taskkill /PID <pid> /F
+```
+
+**Extension shows "server offline"**
+
+- Confirm the task is running: `.\BrowserExtension\install-service.ps1 -Action status`
+- Check the extension Options page has the correct profile name set
+
+**Extension shows "server: error (403)"**
+
+The auth token in the extension Options doesn't match `token.txt`. Retrieve the correct token:
+
+```powershell
+Get-Content ".\BrowserExtension\token.txt"
+```
+
+Paste it into the extension **Options** page and save.
+
+**Extension shows "server offline" but the task is Running**
+
+The port may be held by an orphaned process from a previous manual run:
+
+```powershell
+.\BrowserExtension\install-service.ps1 -Action stop
+.\BrowserExtension\install-service.ps1 -Action start
+```
+
+---
 
 ## Requirements
 
