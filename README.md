@@ -19,6 +19,8 @@ AutoHotkey v2 automation scripts for Windows productivity — window cycling, Ch
 | `startServer.ps1` | Manually start the AltTabSucks server |
 | `screenOff.ps1` | Turn off monitor |
 | `make-template.sh` | Regenerate the sanitized hotkeys template |
+| `hooks/pre-commit` | Git pre-commit hook — auto-runs `make-template.sh` |
+| `install-hooks.sh` | Install tracked hooks into `.git/hooks/` (run once after cloning) |
 
 ## Quick Start
 
@@ -43,14 +45,12 @@ global CHROMIUM_USERDATA := "C:\Users\YourName\AppData\Local\BraveSoftware\Brave
 See [`BrowserExtension/README.md`](BrowserExtension/README.md) for full setup. Short version:
 
 ```powershell
-# Registers a Task Scheduler task that auto-starts at logon (will prompt UAC)
+# Registers a Task Scheduler task that auto-starts at logon (will prompt UAC).
+# Prints an auth token on first run — copy it for the next step.
 powershell -ExecutionPolicy Bypass -File ".\BrowserExtension\install-service.ps1"
-
-# Verify
-curl http://localhost:9876/tabs
 ```
 
-Then load the extension in your browser's extensions page (e.g. `brave://extensions`, `chrome://extensions`) → Developer mode → Load unpacked → `BrowserExtension/` → set your profile name in Options.
+Then load the extension in your browser's extensions page (e.g. `brave://extensions`, `chrome://extensions`) → Developer mode → Load unpacked → `BrowserExtension/` → open the extension **Options** → set your profile name and paste the auth token.
 
 ## Hotkey Conventions
 
@@ -66,7 +66,9 @@ General hotkeys use `Ctrl+Alt+Shift+<key>`. App-scoped hotkeys are wrapped in `#
 
 ## Adding Hotkeys
 
-Add new hotkeys to `lib/app-hotkeys.ahk` (gitignored). Before committing:
+Add new hotkeys to `lib/app-hotkeys.ahk` (gitignored). The pre-commit hook (`hooks/pre-commit`) runs `make-template.sh` automatically on every commit, so the sanitized templates are always kept in sync. Run `bash install-hooks.sh` once after cloning to activate it.
+
+To regenerate templates manually:
 
 ```bash
 ./make-template.sh   # redacts URLs/paths/profiles → lib/app-hotkeys.template.ahk and lib/config.template.ahk

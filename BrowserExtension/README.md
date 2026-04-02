@@ -20,7 +20,7 @@ profile-aware tab switching. Works with any Chromium-based browser (Brave, Chrom
 1. Open your browser and go to its extensions page (e.g. `brave://extensions`, `chrome://extensions`)
 2. Enable **Developer mode** (top-right toggle)
 3. Click **Load unpacked** and select the `AltTabSucks` folder
-4. Open the extension **Options** and set your profile name (e.g. `Default`)
+4. Open the extension **Options** — set your profile name (e.g. `Default`) and paste the auth token (see step 2)
 
 ### 2. Register the scheduled task
 
@@ -35,13 +35,17 @@ This registers a Task Scheduler task named **AltTabSucks** that:
 - Restarts automatically if it crashes (up to 10 times, 1 minute apart)
 - Runs with elevated privileges so `HttpListener` can bind to port 9876
 
-Verify it started:
+On first run, the server generates a random auth token and saves it to `token.txt` (gitignored). The token is printed to the console — copy it and paste it into the extension **Options** page. To retrieve it later:
 
 ```powershell
-curl http://localhost:9876/tabs
+Get-Content ".\token.txt"
 ```
 
-You should get `{}` or a JSON object back.
+Verify the task is running:
+
+```powershell
+.\install-service.ps1 -Action status
+```
 
 ---
 
@@ -54,7 +58,7 @@ You should get `{}` or a JSON object back.
 # Start manually (if stopped)
 .\install-service.ps1 -Action start
 
-# Stop
+# Stop the task and kill any orphaned server.ps1 processes
 .\install-service.ps1 -Action stop
 
 # Remove the task entirely
@@ -98,5 +102,23 @@ netstat -ano | findstr :9876
 **Extension shows "server offline"**
 
 - Confirm the task is running: `.\install-service.ps1 -Action status`
-- Test the endpoint: `curl http://localhost:9876/tabs`
-- Check the extension options page has the correct profile name set
+- Check the extension Options page has the correct profile name set
+
+**Extension shows "server: error (403)"**
+
+The auth token in the extension Options doesn't match `token.txt`. Retrieve the correct token:
+
+```powershell
+Get-Content ".\token.txt"
+```
+
+Paste it into the extension **Options** page and save.
+
+**Extension shows "server offline" but the task is Running**
+
+The port may be held by an orphaned process from a previous manual run. Stop cleanly:
+
+```powershell
+.\install-service.ps1 -Action stop
+.\install-service.ps1 -Action start
+```
