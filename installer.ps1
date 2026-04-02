@@ -36,7 +36,7 @@ if ($Action -in "install","uninstall") {
 }
 
 $TaskName      = "AltTabSucks"
-$ScriptPath    = Join-Path $PSScriptRoot "AltTabSucksServer.ps1"
+$ScriptPath    = Join-Path $PSScriptRoot "Server\AltTabSucksServer.ps1"
 $RepoRoot      = $PSScriptRoot
 $AhkScript     = Join-Path $RepoRoot "AltTabSucks.ahk"
 $StartupDir    = "$env:APPDATA\Microsoft\Windows\Start Menu\Programs\Startup"
@@ -76,7 +76,7 @@ switch ($Action) {
         $taskAction = New-ScheduledTaskAction `
             -Execute "powershell.exe" `
             -Argument "-NonInteractive -WindowStyle Hidden -ExecutionPolicy Bypass -File `"$ScriptPath`"" `
-            -WorkingDirectory $PSScriptRoot
+            -WorkingDirectory (Join-Path $PSScriptRoot "Server")
 
         # Start at logon for the current user only
         $trigger = New-ScheduledTaskTrigger -AtLogOn -User "$env:USERDOMAIN\$env:USERNAME"
@@ -113,7 +113,7 @@ switch ($Action) {
         Write-Host "Task state: $state"
         if ($state -eq "Running") {
             Write-Host "AltTabSucks server is running."
-            $tokenPath = Join-Path $PSScriptRoot "token.txt"
+            $tokenPath = Join-Path $PSScriptRoot "Server\token.txt"
             if (Test-Path $tokenPath) {
                 $token = (Get-Content $tokenPath -Raw -Encoding UTF8).Trim()
                 Write-Host "Auth token (paste into extension Options): $token"

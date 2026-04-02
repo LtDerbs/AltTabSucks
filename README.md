@@ -16,9 +16,9 @@ AutoHotkey v2 automation scripts for Windows productivity — window cycling, Ch
 | `lib/star-citizen.ahk`                 | Star Citizen–scoped hotkeys                                                                           |
 | `lib/app-hotkeys.ahk`                  | General app/browser hotkeys (**gitignored** — contains real paths/URLs)                               |
 | `lib/app-hotkeys.template.ahk`         | Sanitized version of above, tracked in git                                                            |
-| `AltTabSucksServer.ps1`                           | PowerShell HTTP server on `localhost:9876`                                                            |
-| `install-service.ps1`                  | Full install: scheduled task + startup script + immediate launch                                      |
-| `startServer.ps1`                      | Manually start the server (no scheduled task)                                                         |
+| `installer.ps1`                        | Full install: scheduled task + startup script + immediate launch                                      |
+| `Server/AltTabSucksServer.ps1`         | PowerShell HTTP server on `localhost:9876`                                                            |
+| `Server/startServer.ps1`               | Manually start the server (no scheduled task)                                                         |
 | `BrowserExtension/background.js`       | Chromium MV3 extension service worker                                                                 |
 | `screenOff.ps1`                        | Turn off monitor                                                                                      |
 | `make-template.sh`                     | Regenerate sanitized templates from the gitignored source files                                       |
@@ -53,7 +53,7 @@ global CHROMIUM_USERDATA := "C:\Users\YourName\AppData\Local\BraveSoftware\Brave
 Run from any PowerShell 7.6+ prompt (triggers a UAC prompt):
 
 ```powershell
-.\install-service.ps1 -Action install
+.\installer.ps1 -Action install
 ```
 
 This does three things:
@@ -65,10 +65,10 @@ This does three things:
 2. Writes `AltTabSucks.bat` to your `shell:startup` folder, which polls every second for the repo directory (handles mapped drive delay at logon) then launches `AltTabSucks.ahk` automatically on future logons.
 3. Launches `AltTabSucks.ahk` immediately so the current session is live without a logon cycle.
 
-On first run the server generates a random auth token and saves it to `token.txt` (gitignored). The token is printed to the console — copy it for the next step. To retrieve it later:
+On first run the server generates a random auth token and saves it to `Server\token.txt` (gitignored). The token is printed to the console — copy it for the next step. To retrieve it later:
 
 ```powershell
-Get-Content ".\token.txt"
+Get-Content ".\Server\token.txt"
 ```
 
 ### 3. Load the browser extension
@@ -86,16 +86,16 @@ After the first install, everything starts automatically at logon. To reload the
 
 ```powershell
 # Check current state (Running / Ready / Disabled)
-.\install-service.ps1 -Action status
+.\installer.ps1 -Action status
 
 # Start manually (if stopped)
-.\install-service.ps1 -Action start
+.\installer.ps1 -Action start
 
 # Stop the task and kill any orphaned AltTabSucksServer.ps1 processes
-.\install-service.ps1 -Action stop
+.\installer.ps1 -Action stop
 
 # Remove the task and startup script
-.\install-service.ps1 -Action uninstall
+.\installer.ps1 -Action uninstall
 ```
 
 You can also manage it in **Task Scheduler** (`taskschd.msc`) under **Task Scheduler Library > AltTabSucks**.
@@ -103,7 +103,7 @@ You can also manage it in **Task Scheduler** (`taskschd.msc`) under **Task Sched
 To run the server manually without a task:
 
 ```powershell
-.\AltTabSucksServer.ps1
+.\Server\startServer.ps1
 ```
 
 ---
@@ -161,7 +161,7 @@ Look for errors referencing the AltTabSucks task.
 Another instance of `AltTabSucksServer.ps1` is running. Stop it:
 
 ```powershell
-.\install-service.ps1 -Action stop
+.\installer.ps1 -Action stop
 # or find the PID manually:
 netstat -ano | findstr :9876
 # then: taskkill /PID <pid> /F
@@ -169,15 +169,15 @@ netstat -ano | findstr :9876
 
 **Extension shows "server offline"**
 
-- Confirm the task is running: `.\install-service.ps1 -Action status`
+- Confirm the task is running: `.\installer.ps1 -Action status`
 - Check the extension Options page has the correct profile name set
 
 **Extension shows "server: error (403)"**
 
-The auth token in the extension Options doesn't match `token.txt`. Retrieve the correct token:
+The auth token in the extension Options doesn't match `Server\token.txt`. Retrieve the correct token:
 
 ```powershell
-Get-Content ".\token.txt"
+Get-Content ".\Server\token.txt"
 ```
 
 Paste it into the extension **Options** page and save.
@@ -187,7 +187,7 @@ Paste it into the extension **Options** page and save.
 The port may be held by an orphaned process from a previous manual run:
 
 ```powershell
-.\install-service.ps1 -Action stop
-.\install-service.ps1 -Action start
+.\installer.ps1 -Action stop
+.\installer.ps1 -Action start
 ```
 
