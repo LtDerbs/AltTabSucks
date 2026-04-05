@@ -13,8 +13,10 @@ if not A_IsAdmin
 ^!+':: Reload  ; reload script
 
 #Include lib\utils.ahk        ; ShowTextGui, ManageAppWindows
-#Include lib\toast.ahk        ; SampleTitlebarColor, ShowProfileToast
-#Include lib\config.ahk       ; CHROMIUM_EXE, CHROMIUM_USERDATA (gitignored, see config.template.ahk)
+#Include lib\toast.ahk        ; SampleTitlebarColor, ShowProfileToast, ShowSetupToast
+CHROMIUM_EXE      := ""       ; defaults — overwritten by config.ahk if it exists
+CHROMIUM_USERDATA := ""
+#Include *i lib\config.ahk    ; CHROMIUM_EXE, CHROMIUM_USERDATA (gitignored — auto-detected on first launch if absent)
 #Include lib\chromium.ahk     ; Chromium profile cycling + tab focus via AltTabSucks server
 #Include lib\app-hotkeys.ahk  ; general app + browser hotkeys
 #Include lib\star-citizen.ahk ; Star Citizen automation (scoped to SC window)

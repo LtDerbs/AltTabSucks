@@ -1,56 +1,23 @@
 # AltTabSucks
 
-AutoHotkey v2 automation scripts for Windows productivity — window cycling, Chromium browser profile switching, and profile-aware tab control via a local HTTP bridge. Works with any Chromium-based browser (Brave, Chrome, Edge, Vivaldi).
-
-## Components
-
-
-| Path                                   | Purpose                                                                                               |
-| -------------------------------------- | ----------------------------------------------------------------------------------------------------- |
-| `AltTabSucks.ahk`                      | Entry point — self-elevates and includes all libs                                                     |
-| `lib/utils.ahk`                        | Window management (`ManageAppWindows`, `ShowTextGui`)                                                 |
-| `lib/config.ahk`                       | Machine-local config: `CHROMIUM_EXE`, `CHROMIUM_USERDATA` (**gitignored**, see `config.template.ahk`) |
-| `lib/config.template.ahk`              | Sanitized config template, tracked in git                                                             |
-| `lib/chromium.ahk`                     | Chromium profile cycling + tab focus via AltTabSucks                                                  |
-| `lib/toast.ahk`                        | Visual feedback overlays                                                                              |
-| `lib/star-citizen.ahk`                 | Star Citizen–scoped hotkeys                                                                           |
-| `lib/app-hotkeys.ahk`                  | General app/browser hotkeys (**gitignored** — contains real paths/URLs)                               |
-| `lib/app-hotkeys.template.ahk`         | Sanitized version of above, tracked in git                                                            |
-| `installer.ps1`                        | Full install: scheduled task + startup script + immediate launch                                      |
-| `Server/AltTabSucksServer.ps1`         | PowerShell HTTP server on `localhost:9876`                                                            |
-| `Server/startServer.ps1`               | Manually start the server (no scheduled task)                                                         |
-| `BrowserExtension/background.js`       | Chromium MV3 extension service worker                                                                 |
-| `screenOff.ps1`                        | Turn off monitor                                                                                      |
-| `dev-scripts/make-template.sh`         | Regenerate sanitized templates from the gitignored source files                                       |
-| `hooks/pre-commit`                     | Git pre-commit hook — auto-runs `make-template.sh` on commit                                          |
-| `dev-scripts/install-hooks.sh`         | Install tracked hooks into `.git/hooks/` (run once after cloning)                                     |
-
+AutoHotkey v2 automation scripts for Windows productivity — window cycling, Chromium browser profile switching, and profile-aware tab control via a local HTTP bridge. Works with any Chromium-based browser (Brave, Chrome, Edge, Vivaldi, Opera).
 
 ---
 
-## Requirements
-
-- Windows with [AutoHotkey v2](https://www.autohotkey.com/)
-- PowerShell 7.6+ (for AltTabSucks server):
-  ```powershell
-  winget install Microsoft.PowerShell
-  ```
-- A Chromium-based browser (Brave, Chrome, Edge, Vivaldi) for tab-switching features
-
 ## Quick Start
 
-### 1. Configure your browser
+### 1. Install prerequisites
 
-Copy `lib/config.template.ahk` to `lib/config.ahk` and fill in the paths for your Chromium-based browser:
+Install [AutoHotkey v2](https://www.autohotkey.com/) and PowerShell 7.6+:
 
-```ahk
-global CHROMIUM_EXE      := "C:\Program Files\BraveSoftware\Brave-Browser\Application\brave.exe"
-global CHROMIUM_USERDATA := "C:\Users\YourName\AppData\Local\BraveSoftware\Brave-Browser\User Data"
+```powershell
+winget install AutoHotkey.AutoHotkey
+winget install Microsoft.PowerShell
 ```
 
 ### 2. Run the installer
 
-Run from any PowerShell 7.6+ prompt (triggers a UAC prompt):
+Open a PowerShell 7.6+ prompt in the root AltTabSucks dir and run:
 
 ```powershell
 .\installer.ps1 -Action install
@@ -59,11 +26,12 @@ Run from any PowerShell 7.6+ prompt (triggers a UAC prompt):
 This does three things:
 
 1. Registers a Task Scheduler task named **AltTabSucks** that runs `AltTabSucksServer.ps1`:
-  - Starts automatically at logon (runs hidden, no console window)
-  - Restarts automatically if it crashes (up to 10 times, 1 minute apart)
-  - Runs with elevated privileges so `HttpListener` can bind to port 9876
-2. Writes `AltTabSucks.bat` to your `shell:startup` folder, which polls every second for the repo directory (handles mapped drive delay at logon) then launches `AltTabSucks.ahk` automatically on future logons.
+   - Starts automatically at logon (runs hidden, no console window)
+   - Runs with elevated privileges so `HttpListener` can bind to port 9876
+2. Writes `AltTabSucks.bat` to your `shell:startup` folder, which waits for the repo directory (handles mapped drive delay at logon) to be available, then launches `AltTabSucks.ahk` automatically on future logons.
 3. Launches `AltTabSucks.ahk` immediately so the current session is live without a logon cycle.
+
+**Browser auto-detection:** on first launch, AltTabSucks reads your system's default browser from the registry. If it's a supported Chromium browser (Brave, Chrome, Edge, Vivaldi, or Opera), it writes `lib/config.ahk` automatically and shows a brief toast confirming the browser name and paths used. If auto-detection fails (browser not set as the system default, or unsupported), you'll see a dialog — copy `lib/config.template.ahk` to `lib/config.ahk` and fill in the paths manually.
 
 On first run the server generates a random auth token and saves it to `Server\token.txt` (gitignored). The token is printed to the console — copy it for the next step. To retrieve it later:
 
@@ -76,7 +44,8 @@ Get-Content ".\Server\token.txt"
 1. Go to your browser's extensions page (e.g. `brave://extensions`, `chrome://extensions`)
 2. Enable **Developer mode** (top-right toggle)
 3. Click **Load unpacked** and select the `BrowserExtension/` folder
-4. Open the extension **Options** — set your profile name (e.g. `Default`) and paste the auth token from step 2
+4. Open the extension **Options** — set your profile name and paste the auth token from step 2. The name must match the displayed name of your profile in the browser profile menu.
+
 
 After the first install, everything starts automatically at logon. To reload the AHK script manually: `Ctrl+Alt+Shift+'`. To debug: right-click the tray icon → Window Spy.
 
@@ -108,6 +77,11 @@ To run the server manually without a task:
 
 ---
 
+## Adding Hotkeys
+
+Edit `lib/app-hotkeys.ahk` (gitignored — contains real URLs/paths, never committed directly). The tracked counterpart is `lib/app-hotkeys.template.ahk`, which has all sensitive values redacted.
+
+
 ## Hotkey Conventions
 
 
@@ -117,16 +91,10 @@ To run the server manually without a task:
 | `!`      | Alt          |
 | `+`      | Shift        |
 | `#`      | Win          |
-| `~`      | Pass-through |
-
-
-General hotkeys use `Ctrl+Alt+Shift+<key>`. App-scoped hotkeys are wrapped in `#HotIf WinActive(...)`.
 
 ---
 
-## Adding Hotkeys
-
-Edit `lib/app-hotkeys.ahk` (gitignored — contains real URLs/paths, never committed directly). The tracked counterpart is `lib/app-hotkeys.template.ahk`, which has all sensitive values redacted.
+## For Developers
 
 **Triggering template regeneration**
 
@@ -191,3 +159,25 @@ The port may be held by an orphaned process from a previous manual run:
 .\installer.ps1 -Action start
 ```
 
+## Components
+
+
+| Path                                   | Purpose                                                                                               |
+| -------------------------------------- | ----------------------------------------------------------------------------------------------------- |
+| `AltTabSucks.ahk`                      | Entry point — self-elevates and includes all libs                                                     |
+| `lib/utils.ahk`                        | Window management (`ManageAppWindows`, `ShowTextGui`)                                                 |
+| `lib/config.ahk`                       | Machine-local config: `CHROMIUM_EXE`, `CHROMIUM_USERDATA` (**gitignored** — auto-generated on first launch, see `config.template.ahk`) |
+| `lib/config.template.ahk`              | Sanitized config template, tracked in git                                                             |
+| `lib/chromium.ahk`                     | Chromium profile cycling + tab focus via AltTabSucks                                                  |
+| `lib/toast.ahk`                        | Visual feedback overlays                                                                              |
+| `lib/star-citizen.ahk`                 | Star Citizen–scoped hotkeys                                                                           |
+| `lib/app-hotkeys.ahk`                  | General app/browser hotkeys (**gitignored** — contains real paths/URLs)                               |
+| `lib/app-hotkeys.template.ahk`         | Sanitized version of above, tracked in git                                                            |
+| `installer.ps1`                        | Full install: scheduled task + startup script + immediate launch                                      |
+| `Server/AltTabSucksServer.ps1`         | PowerShell HTTP server on `localhost:9876`                                                            |
+| `Server/startServer.ps1`               | Manually start the server (no scheduled task)                                                         |
+| `BrowserExtension/background.js`       | Chromium MV3 extension service worker                                                                 |
+| `screenOff.ps1`                        | Turn off monitor                                                                                      |
+| `dev-scripts/make-template.sh`         | Regenerate sanitized templates from the gitignored source files                                       |
+| `hooks/pre-commit`                     | Git pre-commit hook — auto-runs `make-template.sh` on commit                                          |
+| `dev-scripts/install-hooks.sh`         | Install tracked hooks into `.git/hooks/` (run once after cloning)                                     |

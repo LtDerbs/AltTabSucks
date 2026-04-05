@@ -53,6 +53,92 @@ GetChromiumProfileDirMap() {
     return result
 }
 
+; Detects the system's default Chromium-based browser by reading the https UserChoice ProgId
+; from the registry, then trying known install paths. Populates name/exePath/userDataPath by
+; reference. Returns true on success.
+_DetectDefaultBrowserPaths(&name, &exePath, &userDataPath) {
+    name := ""
+    exePath := ""
+    userDataPath := ""
+    try
+        progId := RegRead("HKCU\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserChoice", "ProgId")
+    catch
+        return false
+
+    localAppData := EnvGet("LOCALAPPDATA")
+    pf           := A_ProgramFiles
+    pf86         := EnvGet("ProgramFiles(x86)")
+    appData      := EnvGet("APPDATA")
+
+    ; Each entry: {id: ProgId prefix, name, exes: [candidates...], data: userdata path}
+    browsers := [
+        {id: "BraveHTML",    name: "Brave",
+         exes: [pf . "\BraveSoftware\Brave-Browser\Application\brave.exe"],
+         data: localAppData . "\BraveSoftware\Brave-Browser\User Data"},
+        {id: "ChromeHTML",   name: "Chrome",
+         exes: [pf . "\Google\Chrome\Application\chrome.exe",
+                pf86 . "\Google\Chrome\Application\chrome.exe",
+                localAppData . "\Google\Chrome\Application\chrome.exe"],
+         data: localAppData . "\Google\Chrome\User Data"},
+        {id: "MSEdgeHTM",    name: "Edge",
+         exes: [pf86 . "\Microsoft\Edge\Application\msedge.exe",
+                pf . "\Microsoft\Edge\Application\msedge.exe"],
+         data: localAppData . "\Microsoft\Edge\User Data"},
+        {id: "VivaldiHTM",   name: "Vivaldi",
+         exes: [localAppData . "\Vivaldi\Application\vivaldi.exe"],
+         data: localAppData . "\Vivaldi\User Data"},
+        {id: "VivaldiStable", name: "Vivaldi",
+         exes: [localAppData . "\Vivaldi\Application\vivaldi.exe"],
+         data: localAppData . "\Vivaldi\User Data"},
+        {id: "OperaStable",  name: "Opera",
+         exes: [localAppData . "\Programs\Opera\opera.exe"],
+         data: appData . "\Opera Software\Opera Stable"},
+    ]
+
+    for b in browsers {
+        if InStr(progId, b.id) != 1
+            continue
+        for exeCandidate in b.exes {
+            if FileExist(exeCandidate) {
+                name         := b.name
+                exePath      := exeCandidate
+                userDataPath := b.data
+                return true
+            }
+        }
+    }
+    return false
+}
+
+; Called at startup: if CHROMIUM_EXE is unset or the exe doesn't exist on disk, auto-detect
+; the default browser, write config.ahk with the resolved paths, and show a setup toast.
+_AutoConfigIfNeeded() {
+    global CHROMIUM_EXE, CHROMIUM_USERDATA
+    if CHROMIUM_EXE != "" && FileExist(CHROMIUM_EXE)
+        return
+    if !_DetectDefaultBrowserPaths(&name, &exePath, &userDataPath) {
+        ShowTextGui("Browser auto-detection failed",
+            "AltTabSucks could not detect your default Chromium browser.`n`n"
+            . "Copy lib\config.template.ahk to lib\config.ahk and fill in the paths.",
+            600, 5)
+        return
+    }
+    CHROMIUM_EXE      := exePath
+    CHROMIUM_USERDATA := userDataPath
+    configPath := A_ScriptDir . "\lib\config.ahk"
+    content := "; config.ahk - Auto-configured at first launch. Edit if needed.`n"
+             . "; This file is gitignored.`n"
+             . "`n"
+             . 'global CHROMIUM_EXE      := "' . exePath . '"' . "`n"
+             . 'global CHROMIUM_USERDATA := "' . userDataPath . '"' . "`n"
+    try {
+        if FileExist(configPath)
+            FileDelete(configPath)
+        FileAppend(content, configPath, "UTF-8")
+    }
+    ShowSetupToast(name, exePath, userDataPath)
+}
+
 ; One-time startup: derive exe filename from CHROMIUM_EXE and pre-populate profile dir cache
 ; from the browser's Local State. CHROMIUM_EXE and CHROMIUM_USERDATA are set in config.ahk.
 ; Restores the foreground-lock timeout saved at startup. Called by OnExit so other
@@ -65,6 +151,8 @@ _RestoreFgLockTimeout(ExitReason, ExitCode) {
 
 _InitChromiumState() {
     global _chromiumExe, _chromiumProfileDirCache, _origFgLockTimeout, _serverToken
+    _AutoConfigIfNeeded()
+
     ; Disable foreground-lock timeout so WinActivate/SwitchToThisWindow can always steal
     ; focus. Default is 200 000 ms which blocks focus-steal for the entire lock period.
     ; Save the original value first so _RestoreFgLockTimeout can put it back on exit.

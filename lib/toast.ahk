@@ -38,6 +38,28 @@ _ExpireToast(t, capturedPtr) {
         _activeToast := ""
 }
 
+; Centered screen toast for first-launch browser auto-detection notification.
+ShowSetupToast(browserName, exePath, userDataPath, duration := 5000) {
+    t := Gui("-Caption +ToolWindow +AlwaysOnTop")
+    t.BackColor := "1A2A3A"
+    t.SetFont("s12 bold cFFFFFF", "Consolas")
+    t.Add("Text", "x18 y14", "AltTabSucks: browser auto-detected")
+    t.SetFont("s11 bold c7EC8E3", "Consolas")
+    t.Add("Text", "x18 y40", browserName)
+    t.SetFont("s9 cAABBCC", "Consolas")
+    t.Add("Text", "x18 y62", exePath)
+    t.Add("Text", "x18 y80", userDataPath)
+    t.SetFont("s8 c556677", "Consolas")
+    t.Add("Text", "x18 y102 w400", "config.ahk written  —  edit to change")
+    t.Show("Hide NoActivate")
+    WinGetPos(, , &tw, &th, "ahk_id " t.Hwnd)
+    tw += 18  ; right padding
+    th += 14
+    WinSetRegion("R14-14 0-0 w" tw " h" th, "ahk_id " t.Hwnd)
+    t.Show("NoActivate x" (A_ScreenWidth - tw) // 2 " y" (A_ScreenHeight - th) // 2)
+    SetTimer(() => t.Destroy(), -duration)
+}
+
 ShowProfileToast(hwnd, label, bgColor) {
     global _activeToast, _toastColorIdx, _toastROYGBIV
     ; If a toast is already on screen, cycle to the next ROYGBIV color
