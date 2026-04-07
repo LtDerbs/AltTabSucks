@@ -304,9 +304,20 @@ FindHwndByAnyTitle(titles, excludeHwnds := []) {
 
 ; Focus a specific tab by URL pattern within a profile, cycling if multiple matches exist.
 ; If no matching tabs exist, opens openUrl in a new tab in an existing profile window.
-FocusTab(profileName, urlPattern, openUrl) {
-    urlPattern := RegExReplace(urlPattern, "^https?://")
-    dbg := "profile=" . profileName . "  url=" . urlPattern . "`n`n"
+; urlPatterns may be a single string or an Array of strings — all matching tabs across all
+; patterns are unioned and cycled through together (each pattern's server sort order preserved).
+FocusTab(profileName, urlPatterns, openUrl) {
+    ; Normalise to Array and strip schemes
+    if !(urlPatterns is Array)
+        urlPatterns := [urlPatterns]
+    cleanPatterns := []
+    for p in urlPatterns
+        cleanPatterns.Push(RegExReplace(p, "^https?://"))
+
+    ; Stable key for cycle-index and cooldown tracking
+    patternKey := ""
+    for p in cleanPatterns
+        patternKey .= (patternKey ? "|" : "") . p
 
     ; Steal focus BEFORE any HTTP requests, while AHK still has input eligibility
     ; from the hotkey that just fired. Modifier-key repeats during an HTTP round-trip
@@ -329,28 +340,36 @@ FocusTab(profileName, urlPattern, openUrl) {
         }
     }
 
-    findtabUrl := "http://localhost:9876/findtab?profile=" . profileName . "&url=" . urlPattern
-    dbg .= "GET " . findtabUrl . "`n"
-    try {
-        http := ComObject("WinHttp.WinHttpRequest.5.1")
-        http.Open("GET", findtabUrl, false)
-        http.SetRequestHeader("X-AltTabSucks-Token", _serverToken)
-        http.Send()
-        result := Trim(StrReplace(http.ResponseText, "`r", ""))
-        dbg .= "status=" . http.Status . "  body='" . result . "'`n`n"
-    } catch as e {
-        dbg .= "ERROR: " . e.Message . "`n"
-        return
+    ; Query /findtab once per pattern; union results preserving each pattern's sort order.
+    matchLines := []
+    seen       := Map()
+    for pattern in cleanPatterns {
+        try {
+            http := ComObject("WinHttp.WinHttpRequest.5.1")
+            http.Open("GET", "http://localhost:9876/findtab?profile=" . profileName . "&url=" . pattern, false)
+            http.SetRequestHeader("X-AltTabSucks-Token", _serverToken)
+            http.Send()
+            body := Trim(StrReplace(http.ResponseText, "`r", ""))
+            if body != "" {
+                for line in StrSplit(body, "`n") {
+                    if !seen.Has(line) {
+                        seen[line] := true
+                        matchLines.Push(line)
+                    }
+                }
+            }
+        } catch {
+            return
+        }
     }
 
     ; No matching tabs - open a new tab in any existing profile window.
     ; Guard against rapid repeated keypresses opening duplicates while the first
     ; tab is still loading and hasn't been posted back to the server yet.
-    if result = "" {
-        cooldownKey := profileName . ":" . urlPattern
+    if matchLines.Length = 0 {
+        cooldownKey := profileName . ":" . patternKey
         if _focusTabOpenedAt.Has(cooldownKey) && (A_TickCount - _focusTabOpenedAt[cooldownKey]) < 2000
             return
-        dbg .= "no matching tabs - attempting to open " . openUrl . "`n"
         profileTitles := GetProfileWindowTitles(profileName)
         _focusTabOpenedAt[cooldownKey] := A_TickCount
         if profileTitles.Length = 0 {
@@ -370,12 +389,11 @@ FocusTab(profileName, urlPattern, openUrl) {
     }
 
     ; Cycle through matches (each line is "windowId|tabId").
-    ; Results are pre-sorted by the server: audible (mic active) first, then leftmost tab.
+    ; Results are pre-sorted by the server per pattern: audible first, then leftmost tab.
     ; Reset to index 0 whenever arriving from outside the browser so the best tab is always
     ; the first destination; continue cycling when already inside the browser.
-    matchLines := StrSplit(result, "`n")
     matchCount := matchLines.Length
-    cacheKey   := profileName . ":" . urlPattern
+    cacheKey   := profileName . ":" . patternKey
     if arrivedFromOutside
         _focusTabLast[cacheKey] := 0
     currentIdx := _focusTabLast.Has(cacheKey) ? _focusTabLast[cacheKey] : 0
