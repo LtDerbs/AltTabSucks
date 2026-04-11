@@ -53,90 +53,110 @@ GetChromiumProfileDirMap() {
     return result
 }
 
-; Detects the system's default Chromium-based browser by reading the https UserChoice ProgId
-; from the registry, then trying known install paths. Populates name/exePath/userDataPath by
-; reference. Returns true on success.
-_DetectDefaultBrowserPaths(&name, &exePath, &userDataPath) {
-    name := ""
-    exePath := ""
-    userDataPath := ""
-    try
-        progId := RegRead("HKCU\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserChoice", "ProgId")
-    catch
-        return false
-
+; Returns an array of {name, exe, data} for every supported Chromium-based browser
+; found on disk. Scans all known install paths — does not rely on registry defaults.
+_DetectInstalledBrowsers() {
     localAppData := EnvGet("LOCALAPPDATA")
     pf           := A_ProgramFiles
     pf86         := EnvGet("ProgramFiles(x86)")
     appData      := EnvGet("APPDATA")
 
-    ; Each entry: {id: ProgId prefix, name, exes: [candidates...], data: userdata path}
-    browsers := [
-        {id: "BraveHTML",    name: "Brave",
-         exes: [pf . "\BraveSoftware\Brave-Browser\Application\brave.exe"],
-         data: localAppData . "\BraveSoftware\Brave-Browser\User Data"},
-        {id: "ChromeHTML",   name: "Chrome",
-         exes: [pf . "\Google\Chrome\Application\chrome.exe",
-                pf86 . "\Google\Chrome\Application\chrome.exe",
-                localAppData . "\Google\Chrome\Application\chrome.exe"],
-         data: localAppData . "\Google\Chrome\User Data"},
-        {id: "MSEdgeHTM",    name: "Edge",
-         exes: [pf86 . "\Microsoft\Edge\Application\msedge.exe",
-                pf . "\Microsoft\Edge\Application\msedge.exe"],
-         data: localAppData . "\Microsoft\Edge\User Data"},
-        {id: "VivaldiHTM",   name: "Vivaldi",
-         exes: [localAppData . "\Vivaldi\Application\vivaldi.exe"],
-         data: localAppData . "\Vivaldi\User Data"},
-        {id: "VivaldiStable", name: "Vivaldi",
-         exes: [localAppData . "\Vivaldi\Application\vivaldi.exe"],
-         data: localAppData . "\Vivaldi\User Data"},
-        {id: "OperaStable",  name: "Opera",
-         exes: [localAppData . "\Programs\Opera\opera.exe"],
-         data: appData . "\Opera Software\Opera Stable"},
+    candidates := [
+        {name: "Brave",   exe: pf   . "\BraveSoftware\Brave-Browser\Application\brave.exe",  data: localAppData . "\BraveSoftware\Brave-Browser\User Data"},
+        {name: "Chrome",  exe: pf   . "\Google\Chrome\Application\chrome.exe",               data: localAppData . "\Google\Chrome\User Data"},
+        {name: "Chrome",  exe: pf86 . "\Google\Chrome\Application\chrome.exe",               data: localAppData . "\Google\Chrome\User Data"},
+        {name: "Chrome",  exe: localAppData . "\Google\Chrome\Application\chrome.exe",       data: localAppData . "\Google\Chrome\User Data"},
+        {name: "Edge",    exe: pf86 . "\Microsoft\Edge\Application\msedge.exe",              data: localAppData . "\Microsoft\Edge\User Data"},
+        {name: "Edge",    exe: pf   . "\Microsoft\Edge\Application\msedge.exe",              data: localAppData . "\Microsoft\Edge\User Data"},
+        {name: "Vivaldi", exe: localAppData . "\Vivaldi\Application\vivaldi.exe",            data: localAppData . "\Vivaldi\User Data"},
+        {name: "Opera",   exe: localAppData . "\Programs\Opera\opera.exe",                   data: appData      . "\Opera Software\Opera Stable"},
     ]
 
-    for b in browsers {
-        if InStr(progId, b.id) != 1
-            continue
-        for exeCandidate in b.exes {
-            if FileExist(exeCandidate) {
-                name         := b.name
-                exePath      := exeCandidate
-                userDataPath := b.data
-                return true
-            }
+    result := []
+    seen   := Map()
+    for c in candidates {
+        key := StrLower(c.exe)
+        if FileExist(c.exe) && !seen.Has(key) {
+            seen[key] := true
+            result.Push({name: c.name, exe: c.exe, data: c.data})
         }
     }
-    return false
+    return result
 }
 
-; Called at startup: if CHROMIUM_EXE is unset or the exe doesn't exist on disk, auto-detect
-; the default browser, write config.ahk with the resolved paths, and show a setup toast.
-_AutoConfigIfNeeded() {
+; Extracts an exe path from a shell command string ("C:\foo.exe" --args  or  C:\foo.exe --args).
+_ParseExeFromCmd(cmd) {
+    if RegExMatch(cmd, 'i)"([^"]+\.exe)"', &m)
+        return m[1]
+    if RegExMatch(cmd, 'i)([^\s"]+\.exe)', &m)
+        return m[1]
+    return ""
+}
+
+; Returns the exe path of the current https handler, trying:
+;   1. HKLM machine-level command (updated by Windows Settings even when UserChoice hash fails)
+;   2. UserChoice ProgId → HKLM class command (set by the browser's own registration)
+; Returns "" if neither resolves.
+_GetHttpsHandlerExe() {
+    try {
+        exe := _ParseExeFromCmd(RegRead("HKLM\SOFTWARE\Classes\https\shell\open\command"))
+        if exe != ""
+            return exe
+    }
+    try {
+        progId := RegRead("HKCU\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserChoice", "ProgId")
+        exe    := _ParseExeFromCmd(RegRead("HKLM\SOFTWARE\Classes\" . progId . "\shell\open\command"))
+        if exe != ""
+            return exe
+    }
+    return ""
+}
+
+; Called at startup when CHROMIUM_EXE is unset. Scans installed browsers, presents a
+; blocking choice dialog, and writes the selection to lib/config.ahk.
+; If dismissed without a choice, config.ahk is not written and the prompt reappears next launch.
+_PromptBrowserChoice() {
     global CHROMIUM_EXE, CHROMIUM_USERDATA
     if CHROMIUM_EXE != "" && FileExist(CHROMIUM_EXE)
         return
-    if !_DetectDefaultBrowserPaths(&name, &exePath, &userDataPath) {
-        ShowTextGui("Browser auto-detection failed",
-            "AltTabSucks could not detect your default Chromium browser.`n`n"
-            . "Copy lib\config.template.ahk to lib\config.ahk and fill in the paths.",
-            600, 5)
+
+    installed := _DetectInstalledBrowsers()
+    if installed.Length = 0 {
+        ShowTextGui("No supported browser found",
+            "AltTabSucks works with Brave, Chrome, Edge, Vivaldi, and Opera.`n`n"
+            . "Install a supported browser, then restart AltTabSucks.",
+            600, 10)
         return
     }
-    CHROMIUM_EXE      := exePath
-    CHROMIUM_USERDATA := userDataPath
+
+    ; Mark whichever installed browser is the current https handler
+    defaultExe := _GetHttpsHandlerExe()
+    choices    := []
+    for b in installed
+        choices.Push({label: b.name . (defaultExe != "" && StrLower(b.exe) = StrLower(defaultExe) ? "  ★" : ""),
+                      detail: b.exe})
+
+    idx := ShowChoiceDialog(
+        "Choose target browser",
+        "Select the browser AltTabSucks will control with hotkeys.`n★ = current https handler",
+        choices)
+
+    if idx = 0
+        return
+
+    b := installed[idx]
+    CHROMIUM_EXE      := b.exe
+    CHROMIUM_USERDATA := b.data
     configPath := A_ScriptDir . "\lib\config.ahk"
-    content := "; config.ahk - Auto-configured at first launch. Edit if needed.`n"
-             . "; This file is gitignored.`n"
-             . "`n"
-             . 'global CHROMIUM_EXE      := "' . exePath . '"' . "`n"
-             . 'global CHROMIUM_USERDATA := "' . userDataPath . '"' . "`n"
+    content := "; config.ahk — written by AltTabSucks on first run. Edit if needed.`n"
+             . "; This file is gitignored.`n`n"
+             . 'global CHROMIUM_EXE      := "' . b.exe . '"' . "`n"
+             . 'global CHROMIUM_USERDATA := "' . b.data . '"' . "`n"
     try {
         if FileExist(configPath)
             FileDelete(configPath)
         FileAppend(content, configPath, "UTF-8")
     }
-    ShowSetupToast(name, exePath, userDataPath)
 }
 
 ; Pushes the profile display-name list to the server so the extension Options page can
@@ -173,7 +193,7 @@ _RestoreFgLockTimeout(ExitReason, ExitCode) {
 
 _InitChromiumState() {
     global _chromiumExe, _chromiumProfileDirCache, _origFgLockTimeout, _serverToken
-    _AutoConfigIfNeeded()
+    _PromptBrowserChoice()
 
     ; Disable foreground-lock timeout so WinActivate/SwitchToThisWindow can always steal
     ; focus. Default is 200 000 ms which blocks focus-steal for the entire lock period.

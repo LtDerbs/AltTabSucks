@@ -29,8 +29,8 @@ if ($Action -in "install","uninstall") {
     $isAdmin = ([Security.Principal.WindowsPrincipal][Security.Principal.WindowsIdentity]::GetCurrent()).IsInRole(
                     [Security.Principal.WindowsBuiltInRole]::Administrator)
     if (-not $isAdmin) {
-        $argList = "-ExecutionPolicy Bypass -File `"$PSCommandPath`" -Action $Action"
-        Start-Process powershell -Verb RunAs -ArgumentList $argList
+        $argList = "-NoExit -ExecutionPolicy Bypass -File `"$PSCommandPath`" -Action $Action"
+        Start-Process pwsh -Verb RunAs -ArgumentList $argList
         exit
     }
 }
@@ -126,23 +126,30 @@ switch ($Action) {
         }
 
         # --- Startup script (AltTabSucks.ahk) ---
-        # Polls every second for the repo directory to appear (mapped drive may not be
-        # available immediately at logon), then launches AltTabSucks.ahk.
 
         $batContent = @"
 @echo off
-set "repoDir=$RepoRoot"
-
-:loop
-if exist "%repoDir%\" (
-    start "" "%repoDir%\AltTabSucks.ahk"
-    exit
-)
-timeout /t 1 /nobreak >nul
-goto :loop
+start "" "$RepoRoot\AltTabSucks.ahk"
 "@
         Set-Content -Path $StartupScript -Value $batContent -Encoding ASCII
         Write-Host "Startup script written to: $StartupScript"
+
+        # Re-initialize browser config so auto-detection always runs with the current
+        # default browser. Deleting config.ahk causes _PromptBrowserChoice() to re-detect
+        # on the next AltTabSucks.ahk launch.
+        $configPath = Join-Path $RepoRoot "lib\config.ahk"
+        if (Test-Path $configPath) {
+            Remove-Item $configPath -Force
+            Write-Host "Removed lib\config.ahk — browser will be re-detected on launch."
+        }
+
+        # Seed app-hotkeys.ahk from the template if the user doesn't have one yet.
+        $hotkeysPath   = Join-Path $RepoRoot "lib\app-hotkeys.ahk"
+        $templatePath  = Join-Path $RepoRoot "lib\app-hotkeys.template.ahk"
+        if (-not (Test-Path $hotkeysPath)) {
+            Copy-Item $templatePath $hotkeysPath
+            Write-Host "Created lib\app-hotkeys.ahk from template — edit it to add your hotkeys."
+        }
 
         Write-Host "Launching AltTabSucks.ahk..."
         Start-Process $AhkScript
