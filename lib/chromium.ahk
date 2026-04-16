@@ -94,18 +94,20 @@ _ParseExeFromCmd(cmd) {
 }
 
 ; Returns the exe path of the current https handler, trying:
-;   1. HKLM machine-level command (updated by Windows Settings even when UserChoice hash fails)
-;   2. UserChoice ProgId → HKLM class command (set by the browser's own registration)
+;   1. UserChoice ProgId → HKLM class command (the actual per-user default set by Windows Settings
+;      or a browser's "Set as default" flow that successfully passed the UserChoice hash check)
+;   2. HKLM machine-level command (fallback — often points to Edge on machines where Edge is
+;      installed, regardless of the user's chosen default, so we only use it if UserChoice fails)
 ; Returns "" if neither resolves.
 _GetHttpsHandlerExe() {
     try {
-        exe := _ParseExeFromCmd(RegRead("HKLM\SOFTWARE\Classes\https\shell\open\command"))
+        progId := RegRead("HKCU\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserChoice", "ProgId")
+        exe    := _ParseExeFromCmd(RegRead("HKLM\SOFTWARE\Classes\" . progId . "\shell\open\command"))
         if exe != ""
             return exe
     }
     try {
-        progId := RegRead("HKCU\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserChoice", "ProgId")
-        exe    := _ParseExeFromCmd(RegRead("HKLM\SOFTWARE\Classes\" . progId . "\shell\open\command"))
+        exe := _ParseExeFromCmd(RegRead("HKLM\SOFTWARE\Classes\https\shell\open\command"))
         if exe != ""
             return exe
     }
@@ -404,7 +406,7 @@ FocusTab(profileName, urlPatterns, openUrl) {
         if hwnd = 0
             return
         WinActivate("ahk_id " hwnd)
-        Run(openUrl)
+        Run('"' . CHROMIUM_EXE . '" "' . openUrl . '"')
         return
     }
 

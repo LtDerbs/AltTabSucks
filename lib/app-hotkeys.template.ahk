@@ -1,5 +1,6 @@
 ; app-hotkeys.ahk - General application hotkeys
 
+; Key notation: `^`=Ctrl, `!`=Alt, `+`=Shift, `#`=Win, `~`=pass-through
 ;--- BEGIN SENSITIVE ---
 
 P1 := "Default"
@@ -39,8 +40,8 @@ P2 := "Profile 1"
 
 ; --- App window management ---
 ^!+n:: ManageAppWindows("notepad++.exe", "C:\ProgramData\Microsoft\Windows\Start Menu\Programs", "toggle")
-^!+d:: ManageAppWindows("discord.exe", EnvGet("USERPROFILE") "AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Discord Inc\Discord")
-^!+e:: ManageAppWindows("code.exe", EnvGet("USERPROFILE") "AppData\Local\Programs\Microsoft VS Code\Code.exe", "toggle")
+^!+d:: ManageAppWindows("discord.exe", EnvGet("USERPROFILE") "\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Discord Inc\Discord")
+^!+e:: ManageAppWindows("code.exe", EnvGet("USERPROFILE") "\AppData\Local\Programs\Microsoft VS Code\Code.exe", "toggle")
 
 ; -- Folder shortcuts
 ^!+a:: {

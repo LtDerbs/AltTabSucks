@@ -1,6 +1,6 @@
 # AltTabSucks
 
-AutoHotkey v2 automation scripts for Windows productivity — window cycling, browser profile switching, and profile-aware tab control via a local HTTP bridge. Supports Brave and Chrome, not Edge.
+ATS is the alt-tab of the future. It is a keyboard shortcut based solution for app-specific window focus control and profile-aware URL-based browser tab focus control. Supports Brave and Chrome at the moment.
 
 ---
 
@@ -45,10 +45,13 @@ Get-Content ".\Server\token.txt"
    1. Profile name as it appears in the browser profile menu.
    1. Auth token from copied in prior step.
 
-After the first install, everything starts automatically at logon. To reload the AHK script manually: `Ctrl+Alt+Shift+'`. To debug: right-click the tray icon → Window Spy.
+After the first install, everything starts automatically at logon. To reload the AHK script manually: `Ctrl+Alt+Shift+'`.
 
 ### 4. Open up app-hotkeys.ahk and set up your desired shortcuts!
-Depending how you have your applications installed, some of the default paths included may need editing.
+
+1. Set your profile names as the P1 and P2 values, as they appear in the browser's profile dropdown menu
+2. Depending how you have your applications installed, some of the default paths included may need editing.
+3. Open your browser, create a new tab to hydrate the extension's localserver, and press Ctrl+Alt+Shift+L to see a debug readout of your current tabs' states. If that looks accurate, you're ready to start using the browser based shortcuts. Have fun!
 
 Done!
 
@@ -88,23 +91,6 @@ To run the server manually without a task:
 ```powershell
 .\Server\startServer.ps1
 ```
-
----
-
-## Adding Hotkeys
-
-Edit `lib/app-hotkeys.ahk` (gitignored — contains real URLs/paths, never committed directly). The tracked counterpart is `lib/app-hotkeys.template.ahk`, which has all sensitive values redacted.
-
-
-## Hotkey Conventions
-
-
-| Modifier | Meaning      |
-| -------- | ------------ |
-| `^`      | Ctrl         |
-| `!`      | Alt          |
-| `+`      | Shift        |
-| `#`      | Win          |
 
 ---
 
