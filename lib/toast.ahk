@@ -109,11 +109,11 @@ ShowChoiceDialog(title, prompt, choices) {
 
     d.Show("Hide AutoSize")
     dHwnd := d.Hwnd
-    WinGetPos(, , &dw, , "ahk_id " dHwnd)
+    WinGetPos(, , &dw, &dh, "ahk_id " dHwnd)
     dw += 20
-    dh := y + 12
     WinSetRegion("R14-14 0-0 w" dw " h" dh, "ahk_id " dHwnd)
-    d.Show("x" (A_ScreenWidth - dw) // 2 " y" (A_ScreenHeight - dh) // 2)
+    safeY := Max(10, (A_ScreenHeight - dh) // 2)
+    d.Show("x" (A_ScreenWidth - dw) // 2 " y" safeY)
 
     ; Digit and Escape shortcuts — predicate keeps them scoped to this dialog
     isActive := (*) => WinActive("ahk_id " dHwnd)

@@ -40,5 +40,9 @@ echo "Written: $root/app-hotkeys.template.ahk"
 
 # config.ahk → config.template.ahk
 # Uses comment-aware sanitizer to preserve example paths in ; comment lines.
-sanitize_paths_skip_comments < "$root/config.ahk" > "$root/config.template.ahk"
-echo "Written: $root/config.template.ahk"
+if [ -f "$root/config.ahk" ]; then
+  sanitize_paths_skip_comments < "$root/config.ahk" > "$root/config.template.ahk"
+  echo "Written: $root/config.template.ahk"
+else
+  echo "Skipped: $root/config.template.ahk (config.ahk not present)"
+fi
