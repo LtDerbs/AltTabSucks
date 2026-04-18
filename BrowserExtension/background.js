@@ -47,11 +47,13 @@ async function pollSwitchQueue() {
     });
     if (res.status === 200) {
       const cmd = await res.json();
-      if (cmd &&
+      if (cmd && cmd.openUrl) {
+        await chrome.tabs.create({ url: cmd.openUrl });
+      } else if (cmd &&
           Number.isInteger(cmd.tabId)    && cmd.tabId    > 0 &&
           Number.isInteger(cmd.windowId) && cmd.windowId > 0) {
         await chrome.tabs.update(cmd.tabId, { active: true });
-        await chrome.windows.update(cmd.windowId, { focused: true });
+        if (chrome.windows) await chrome.windows.update(cmd.windowId, { focused: true });
       }
     }
   } catch {

@@ -52,9 +52,9 @@ try { while ($listener.IsListening) {
         # and rejects their preflights, preventing tab enumeration and forced tab switches.
         # AHK uses WinHttp which sends no Origin header and ignores CORS entirely.
         $origin = $req.Headers["Origin"]
-        if ($origin -like "chrome-extension://*") {
+        if ($origin -like "chrome-extension://*" -or $origin -like "moz-extension://*") {
             $res.Headers.Add("Access-Control-Allow-Origin",  $origin)
-            $res.Headers.Add("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+            $res.Headers.Add("Access-Control-Allow-Methods", "GET, POST, DELETE, OPTIONS")
             $res.Headers.Add("Access-Control-Allow-Headers", "Content-Type, X-AltTabSucks-Token")
             $res.Headers.Add("Access-Control-Max-Age",       "86400")
             $res.Headers.Add("Vary", "Origin")
@@ -108,6 +108,13 @@ try { while ($listener.IsListening) {
                 $store[$payload.profile] = $payload.windows
                 $res.StatusCode = 204
             }
+
+        } elseif ($method -eq "DELETE" -and $path -eq "/tabs") {
+            $profile = $req.QueryString["profile"]
+            if ($profile -and $store.ContainsKey($profile)) {
+                $store.Remove($profile)
+            }
+            $res.StatusCode = 204
 
         } elseif ($method -eq "GET" -and $path -eq "/tabs") {
             # return all profiles merged: { "Default": [...], "Work": [...] }
@@ -172,7 +179,11 @@ try { while ($listener.IsListening) {
                 $body    = $reader.ReadToEnd()
                 $reader.Close()
                 $payload = $body | ConvertFrom-Json
-                $switchQueue[$payload.profile] = @{ windowId = $payload.windowId; tabId = $payload.tabId }
+                if ($payload.openUrl) {
+                    $switchQueue[$payload.profile] = @{ openUrl = $payload.openUrl }
+                } else {
+                    $switchQueue[$payload.profile] = @{ windowId = $payload.windowId; tabId = $payload.tabId }
+                }
                 $res.StatusCode = 204
             }
 
@@ -181,7 +192,7 @@ try { while ($listener.IsListening) {
             # Reject simple-request GETs from browser page origins — they send no preflight
             # so CORS alone doesn't block them from consuming queued switch commands.
             $profile = $req.QueryString["profile"]
-            if ($origin -and $origin -notlike "chrome-extension://*") {
+            if ($origin -and $origin -notlike "chrome-extension://*" -and $origin -notlike "moz-extension://*") {
                 $res.StatusCode = 204
             } elseif ($switchQueue.ContainsKey($profile) -and $null -ne $switchQueue[$profile]) {
                 $cmd = $switchQueue[$profile]

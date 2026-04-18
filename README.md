@@ -1,6 +1,6 @@
 # AltTabSucks
 
-ATS is the alt-tab of the future. It is a keyboard shortcut based solution for app-specific window focus control and profile-aware URL-based browser tab focus control. Supports Brave and Chrome at the moment.
+ATS is the alt-tab of the future. It is a keyboard shortcut based solution for app-specific window focus control and profile-aware URL-based browser tab focus control. Supports Brave, Chrome and Firefox at the moment.
 
 ---
 
@@ -13,8 +13,6 @@ Install [AutoHotkey v2](https://www.autohotkey.com/) and PowerShell 7.6+:
 ```powershell
 winget install AutoHotkey.AutoHotkey
 winget install Microsoft.PowerShell
-
-# Note: Works for Brave and Chrome, not Edge.
 ```
 
 ### 2. Run the installer
@@ -36,24 +34,30 @@ On first run the server generates a random auth token and saves it to `Server\to
 Get-Content ".\Server\token.txt"
 ```
 
-### 3. Load the browser extension
+### 3. Load and configure the browser extension
 
-1. Go to your browser's extensions page (e.g. `brave://extensions`, `chrome://extensions`)
-2. Enable **Developer mode** (top-right toggle)
-3. Click **Load unpacked** and select the `BrowserExtension/` folder
-4. Open the extension **Options** and set two fields: 
-   1. Profile name as it appears in the browser profile menu.
-   1. Auth token from copied in prior step.
-
+1. Install the extension:
+   * Chrome/Brave:
+      1. Go to your browser's extensions page (e.g. `brave://extensions`, `chrome://extensions`)
+      1. Enable **Developer mode** (top-right toggle)
+      1. Click **Load unpacked** and select the `BrowserExtension/` folder
+   * Firefox:
+      1. Go to `about:addons`
+      1. Install AltTabSucks.xpi 
+1. Open the extension **Options** and set two fields: 
+      1. Auth token - Paste the auth token from copied from prior step, and click save.
+      1. Profile dropdown - after saving the auth token, refresh the profile list and select the current active profile name.
+            
 After the first install, everything starts automatically at logon. To reload the AHK script manually: `Ctrl+Alt+Shift+'`.
 
 ### 4. Open up app-hotkeys.ahk and set up your desired shortcuts!
 
-1. Set your profile names as the P1 and P2 values, as they appear in the browser's profile dropdown menu
-2. Depending how you have your applications installed, some of the default paths included may need editing.
-3. Open your browser, create a new tab to hydrate the extension's localserver, and press Ctrl+Alt+Shift+L to see a debug readout of your current tabs' states. If that looks accurate, you're ready to start using the browser based shortcuts. Have fun!
+1. Set your profile name(s) as the P1 and P2 values, as they appear in the browser's profile dropdown menu
+   * Note: Depending how you have your applications installed, some of the default paths included may need editing.
+1. Open your browser, create a new tab to hydrate the extension's localserver, and press Ctrl+Alt+Shift+L to see a debug readout of your current tabs' states. If that looks accurate, you're ready to start using the browser based shortcuts. Have fun!
+1. Come back to this file any time to edit hotkey triggers, add apps, urls, etc as desired.
+1. Have fun!
 
-Done!
 
 ---
 MORE INFO

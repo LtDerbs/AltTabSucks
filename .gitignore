@@ -3,3 +3,4 @@ config.ahk
 CLAUDE.md
 token.txt
 Server/token.txt
+.amo-credentials

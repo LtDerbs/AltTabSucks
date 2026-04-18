@@ -61,16 +61,31 @@ _DetectInstalledBrowsers() {
     pf86         := EnvGet("ProgramFiles(x86)")
     appData      := EnvGet("APPDATA")
 
+    ffIni := appData . "\Mozilla\Firefox\profiles.ini"
     candidates := [
-        {name: "Brave",   exe: pf   . "\BraveSoftware\Brave-Browser\Application\brave.exe",  data: localAppData . "\BraveSoftware\Brave-Browser\User Data"},
-        {name: "Chrome",  exe: pf   . "\Google\Chrome\Application\chrome.exe",               data: localAppData . "\Google\Chrome\User Data"},
-        {name: "Chrome",  exe: pf86 . "\Google\Chrome\Application\chrome.exe",               data: localAppData . "\Google\Chrome\User Data"},
-        {name: "Chrome",  exe: localAppData . "\Google\Chrome\Application\chrome.exe",       data: localAppData . "\Google\Chrome\User Data"},
-        {name: "Edge",    exe: pf86 . "\Microsoft\Edge\Application\msedge.exe",              data: localAppData . "\Microsoft\Edge\User Data"},
-        {name: "Edge",    exe: pf   . "\Microsoft\Edge\Application\msedge.exe",              data: localAppData . "\Microsoft\Edge\User Data"},
-        {name: "Vivaldi", exe: localAppData . "\Vivaldi\Application\vivaldi.exe",            data: localAppData . "\Vivaldi\User Data"},
-        {name: "Opera",   exe: localAppData . "\Programs\Opera\opera.exe",                   data: appData      . "\Opera Software\Opera Stable"},
+        {name: "Brave",   exe: pf   . "\BraveSoftware\Brave-Browser\Application\brave.exe",  data: localAppData . "\BraveSoftware\Brave-Browser\User Data", profileIni: "", type: "chromium"},
+        {name: "Chrome",  exe: pf   . "\Google\Chrome\Application\chrome.exe",               data: localAppData . "\Google\Chrome\User Data",               profileIni: "", type: "chromium"},
+        {name: "Chrome",  exe: pf86 . "\Google\Chrome\Application\chrome.exe",               data: localAppData . "\Google\Chrome\User Data",               profileIni: "", type: "chromium"},
+        {name: "Chrome",  exe: localAppData . "\Google\Chrome\Application\chrome.exe",       data: localAppData . "\Google\Chrome\User Data",               profileIni: "", type: "chromium"},
+        {name: "Edge",    exe: pf86 . "\Microsoft\Edge\Application\msedge.exe",              data: localAppData . "\Microsoft\Edge\User Data",              profileIni: "", type: "chromium"},
+        {name: "Edge",    exe: pf   . "\Microsoft\Edge\Application\msedge.exe",              data: localAppData . "\Microsoft\Edge\User Data",              profileIni: "", type: "chromium"},
+        {name: "Vivaldi", exe: localAppData . "\Vivaldi\Application\vivaldi.exe",            data: localAppData . "\Vivaldi\User Data",                     profileIni: "", type: "chromium"},
+        {name: "Opera",   exe: localAppData . "\Programs\Opera\opera.exe",                   data: appData      . "\Opera Software\Opera Stable",           profileIni: "", type: "chromium"},
     ]
+
+    ; Firefox writes its install dir to the registry — more reliable than hardcoded paths.
+    ; Try 64-bit key first, then WOW6432Node for 32-bit installs.
+    for regKey in ["HKLM\SOFTWARE\Mozilla\Mozilla Firefox", "HKLM\SOFTWARE\WOW6432Node\Mozilla\Mozilla Firefox"] {
+        try {
+            version    := RegRead(regKey, "CurrentVersion")
+            installDir := RegRead(regKey . "\" . version . "\Main", "Install Directory")
+            ffExe      := installDir . "\firefox.exe"
+            if FileExist(ffExe) {
+                candidates.Push({name: "Firefox", exe: ffExe, data: "", profileIni: ffIni, type: "firefox"})
+                break
+            }
+        }
+    }
 
     result := []
     seen   := Map()
@@ -78,7 +93,7 @@ _DetectInstalledBrowsers() {
         key := StrLower(c.exe)
         if FileExist(c.exe) && !seen.Has(key) {
             seen[key] := true
-            result.Push({name: c.name, exe: c.exe, data: c.data})
+            result.Push({name: c.name, exe: c.exe, data: c.data, profileIni: c.profileIni, type: c.type})
         }
     }
     return result
@@ -118,14 +133,14 @@ _GetHttpsHandlerExe() {
 ; blocking choice dialog, and writes the selection to lib/config.ahk.
 ; If dismissed without a choice, config.ahk is not written and the prompt reappears next launch.
 _PromptBrowserChoice() {
-    global CHROMIUM_EXE, CHROMIUM_USERDATA
-    if CHROMIUM_EXE != "" && FileExist(CHROMIUM_EXE)
+    global CHROMIUM_EXE, CHROMIUM_USERDATA, FIREFOX_EXE, FIREFOX_PROFILE_INI
+    if (CHROMIUM_EXE != "" && FileExist(CHROMIUM_EXE)) || (FIREFOX_EXE != "" && FileExist(FIREFOX_EXE))
         return
 
     installed := _DetectInstalledBrowsers()
     if installed.Length = 0 {
         ShowTextGui("No supported browser found",
-            "AltTabSucks works with Brave, Chrome, Edge, Vivaldi, and Opera.`n`n"
+            "AltTabSucks works with Brave, Chrome, Edge, Vivaldi, Opera, and Firefox.`n`n"
             . "Install a supported browser, then restart AltTabSucks.",
             600, 10)
         return
@@ -146,14 +161,27 @@ _PromptBrowserChoice() {
     if idx = 0
         return
 
-    b := installed[idx]
-    CHROMIUM_EXE      := b.exe
-    CHROMIUM_USERDATA := b.data
+    b          := installed[idx]
     configPath := A_ScriptDir . "\lib\config.ahk"
-    content := "; config.ahk — written by AltTabSucks on first run. Edit if needed.`n"
-             . "; This file is gitignored.`n`n"
-             . 'global CHROMIUM_EXE      := "' . b.exe . '"' . "`n"
-             . 'global CHROMIUM_USERDATA := "' . b.data . '"' . "`n"
+    if b.type = "firefox" {
+        FIREFOX_EXE         := b.exe
+        FIREFOX_PROFILE_INI := b.profileIni
+        content := "; config.ahk — written by AltTabSucks on first run. Edit if needed.`n"
+                 . "; This file is gitignored.`n`n"
+                 . 'global CHROMIUM_EXE        := ""' . "`n"
+                 . 'global CHROMIUM_USERDATA   := ""' . "`n"
+                 . 'global FIREFOX_EXE         := "' . b.exe . '"' . "`n"
+                 . 'global FIREFOX_PROFILE_INI := "' . b.profileIni . '"' . "`n"
+    } else {
+        CHROMIUM_EXE      := b.exe
+        CHROMIUM_USERDATA := b.data
+        content := "; config.ahk — written by AltTabSucks on first run. Edit if needed.`n"
+                 . "; This file is gitignored.`n`n"
+                 . 'global CHROMIUM_EXE        := "' . b.exe . '"' . "`n"
+                 . 'global CHROMIUM_USERDATA   := "' . b.data . '"' . "`n"
+                 . 'global FIREFOX_EXE         := ""' . "`n"
+                 . 'global FIREFOX_PROFILE_INI := ""' . "`n"
+    }
     try {
         if FileExist(configPath)
             FileDelete(configPath)
@@ -234,6 +262,10 @@ _InitChromiumState() {
 _InitChromiumState()
 
 CycleChromiumProfile(profileName) {
+    if CHROMIUM_EXE = "" {
+        CycleFirefoxProfile(profileName)
+        return
+    }
     profileTitles := GetProfileWindowTitles(profileName)
 
     ; Build a cache key from the current titles
@@ -329,6 +361,10 @@ FindHwndByAnyTitle(titles, excludeHwnds := []) {
 ; urlPatterns may be a single string or an Array of strings — all matching tabs across all
 ; patterns are unioned and cycled through together (each pattern's server sort order preserved).
 FocusTab(profileName, urlPatterns, openUrl) {
+    if CHROMIUM_EXE = "" {
+        FocusTabFirefox(profileName, urlPatterns, openUrl)
+        return
+    }
     ; Normalise to Array and strip schemes
     if !(urlPatterns is Array)
         urlPatterns := [urlPatterns]

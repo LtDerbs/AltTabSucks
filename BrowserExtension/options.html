@@ -2,31 +2,35 @@
 <html>
 <head>
   <meta charset="utf-8">
+  <title>AltTabSucks Options</title>
   <style>
     body { font-family: monospace; font-size: 13px; padding: 16px; max-width: 360px; }
-    label { display: block; margin-bottom: 6px; }
+    label { display: block; margin-bottom: 10px; }
+    .label-text { display: block; margin-bottom: 4px; }
     .input-row { display: flex; gap: 6px; }
+    .input-row select,
     .input-row input { flex: 1; min-width: 0; }
-    input { width: 100%; box-sizing: border-box; padding: 4px; font-family: monospace; }
+    select, input { width: 100%; box-sizing: border-box; padding: 4px; font-family: monospace; font-size: 13px; }
     button { padding: 4px 12px; font-family: monospace; }
     #fetch-profiles { padding: 4px 8px; }
     #save { margin-top: 10px; }
     #status { margin-top: 8px; color: green; min-height: 1em; }
+    .hint { font-size: 11px; color: #888; margin-top: 3px; }
   </style>
 </head>
 <body>
   <h2>AltTabSucks Options</h2>
   <label>
-    Profile name
-    <div class="input-row">
-      <input id="profile-name" list="profiles-list" placeholder="e.g. Default, Work, Personal">
-      <button id="fetch-profiles" title="Fetch profiles from AltTabSucks server">↺</button>
-    </div>
-    <datalist id="profiles-list"></datalist>
+    <span class="label-text">Auth token (shown by installer.ps1 or in Server\token.txt)</span>
+    <input id="auth-token" type="text" placeholder="paste token here">
   </label>
   <label>
-    Auth token (shown by installer.ps1 or in Server\token.txt)
-    <input id="auth-token" type="text" placeholder="paste token here">
+    <span class="label-text">Profile</span>
+    <div class="input-row">
+      <select id="profile-select"></select>
+      <button id="fetch-profiles" title="Refresh profile list from AltTabSucks server">↺</button>
+    </div>
+    <div id="profile-hint" class="hint"></div>
   </label>
   <button id="save">Save</button>
   <div id="status"></div>
