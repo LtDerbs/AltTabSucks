@@ -59,6 +59,9 @@ P2 := "Profile 1"
     Run("powershell.exe -ExecutionPolicy Bypass -File `" " psScript "`"",, "Hide")
 }
 
+; --- Hotkey quick reference (auto-generated from this file) ---
+^!+/:: ShowTextGui("Hotkey Reference", _BuildHotkeyRef(), 1250, 28)
+
 ; --- Debug: show AltTabSucks profile/window state ---
 ^!+l:: {
     profileMap := GetChromiumProfileDirMap()
@@ -81,3 +84,4 @@ P2 := "Profile 1"
 
     ShowTextGui("AltTabSucks Debug", "=== Profile Directories ===`n" . profileMap . "`n=== Tabs ===`n" . tabDebug, 900, 30)
 }
+

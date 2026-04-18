@@ -44,6 +44,93 @@ ClipboardCmToFtIn() {
     A_Clipboard := num_ft . "' " . Round(num_in, 1) . Chr(34) ; Chr(34) = double quote
 }
 
+; Parses app-hotkeys.ahk and returns a formatted hotkey reference string.
+; Descriptions are derived from FocusTab/ManageAppWindows/Cycle*Profile arguments.
+_BuildHotkeyRef() {
+    content  := FileRead(A_ScriptDir "\lib\app-hotkeys.ahk", "UTF-8")
+    lines    := StrSplit(content, "`n", "`r")
+
+    profiles := Map()
+    pos := 1
+    while RegExMatch(content, '(?m)^(P\w+)\s*:=\s*"([^"]+)"', &m, pos) {
+        profiles[m[1]] := m[2]
+        pos := m.Pos + m.Len
+    }
+
+    ref     := ""
+    inBlock := false
+    for line in lines {
+        trimmed := Trim(line)
+        if inBlock {
+            if trimmed = "}"
+                inBlock := false
+            continue
+        }
+        if !RegExMatch(trimmed, "^([^\s:]+)::\s*(.*)", &hm)
+            continue
+        combo  := hm[1]
+        action := Trim(hm[2])
+        if action = "{" {
+            inBlock := true
+            continue
+        }
+        if action = "" || action = "return"
+            continue
+        desc := _HotkeyDesc(action, profiles)
+        if desc = ""
+            continue
+        ref .= _FormatHotkeyCombo(combo) . "  →  " . desc . "`n"
+    }
+    return Trim(ref)
+}
+
+_FormatHotkeyCombo(combo) {
+    modChars := "^!+#~*$<>&@"
+    keyStart := 1
+    Loop StrLen(combo) {
+        if InStr(modChars, SubStr(combo, A_Index, 1))
+            keyStart := A_Index + 1
+        else
+            break
+    }
+    if keyStart > StrLen(combo)
+        keyStart := StrLen(combo)
+    mods := SubStr(combo, 1, keyStart - 1)
+    key  := SubStr(combo, keyStart)
+    return (InStr(mods, "^") ? "Ctrl+"  : "")
+         . (InStr(mods, "!") ? "Alt+"   : "")
+         . (InStr(mods, "+") ? "Shift+" : "")
+         . (InStr(mods, "#") ? "Win+"   : "")
+         . StrUpper(key)
+}
+
+_HotkeyDesc(action, profiles) {
+    if InStr(action, "FocusTab(") || InStr(action, "FocusTabFirefox(") {
+        all := []
+        pos := 1
+        while RegExMatch(action, '"([^"]+)"', &m, pos) {
+            all.Push(m[1])
+            pos := m.Pos + m.Len
+        }
+        if all.Length = 0
+            return ""
+        openUrl  := RegExReplace(all[all.Length], "^https?://")
+        patterns := ""
+        Loop all.Length - 1
+            patterns .= (patterns ? ", " : "") . RegExReplace(all[A_Index], "^https?://")
+        return (patterns ? patterns . "  →  " : "") . openUrl
+    }
+    if InStr(action, "ManageAppWindows(") {
+        if RegExMatch(action, '"([^"]+)"', &m)
+            return m[1]
+    }
+    if RegExMatch(action, "Cycle\w+Profile\((\w+)\)", &m) {
+        pVar := m[1]
+        return (profiles.Has(pVar) ? profiles[pVar] : pVar) . " (cycle)"
+    }
+    return ""
+}
+
 ; ManageAppWindows(processName, exePath, mode)
 ;
 ; processName  - executable name, e.g. "notepad++.exe"
