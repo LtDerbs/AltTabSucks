@@ -99,15 +99,6 @@ _DetectInstalledBrowsers() {
     return result
 }
 
-; Extracts an exe path from a shell command string ("C:\foo.exe" --args  or  C:\foo.exe --args).
-_ParseExeFromCmd(cmd) {
-    if RegExMatch(cmd, 'i)"([^"]+\.exe)"', &m)
-        return m[1]
-    if RegExMatch(cmd, 'i)([^\s"]+\.exe)', &m)
-        return m[1]
-    return ""
-}
-
 
 ; Called at startup when CHROMIUM_EXE is unset. Scans installed browsers, presents a
 ; blocking choice dialog, and writes the selection to lib/config.ahk.

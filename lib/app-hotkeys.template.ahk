@@ -9,6 +9,7 @@ P2 := "Profile 1"
 ^!+s:: FocusTab(P2, ["YOUR_URL"],           "https://YOUR_URL")
 ^!+j:: FocusTab(P2, ["https://YOUR_URL","https://YOUR_URL","https://YOUR_URL","https://YOUR_URL"],  "https://YOUR_URL")
 ^!+b:: FocusTab(P2, ["YOUR_URL"],           "https://YOUR_URL")
+^!+z:: FocusTab(P2, ["YOUR_URL"],             "https://YOUR_URL")
 
 ;--- END SENSITIVE ---
 
@@ -17,20 +18,19 @@ P2 := "Profile 1"
 ; --- Brave tab focus (profile 1) ---
 ^!+m:: FocusTab(P1, ["google.com/maps","bing.com/maps","apple.com/maps","openstreetmap.org"],     "https://maps.google.com")
 ^!+v:: FocusTab(P1, ["chat.google.com"],     "https://chat.google.com/")
-^+#v:: FocusTab(P1, ["meet.google.com"], "https://ebay.com")
+^+#v:: FocusTab(P1, ["meet.google.com"], "https://meet.google.com")
 ^!+g:: FocusTab(P1, ["mail.google.com","workspace,google.com"],     "https://mail.google.com")
 ^!+y:: FocusTab(P1, ["youtube.com"],         "https://youtube.com")
 ^!+r:: FocusTab(P1, ["reddit.com"],          "https://reddit.com/r/sailing")
 ^!+x:: FocusTab(P1, ["messages.google.com"], "https://messages.google.com")
 ^!+k:: FocusTab(P1, ["keep.google.com"], "https://keep.google.com")
-^!#g:: FocusTab(P1, ["gemini.google.com"], "https://gemini.google.com")
-^!#c:: FocusTab(P1, ["claude.ai"], "https://claude.ai")
+^+#g:: FocusTab(P1, ["gemini.google.com"], "https://gemini.google.com")
+^+#c:: FocusTab(P1, ["claude.ai"], "https://claude.ai")
 ^!+p:: FocusTab(P1, ["ebay.com"], "https://ebay.com")
 
 ; --- Brave tab focus (profile 2) ---
 ^!+o:: FocusTab(P2, ["outlook.cloud.microsoft"], "https://outlook.cloud.microsoft")
 ^!+u:: FocusTab(P2, ["teams.microsoft.com"],     "https://teams.microsoft.com")
-^!+z:: FocusTab(P2, ["app.zoom.us"],             "https://app.zoom.us")
 
 ; --- Brave window cycling ---
 ^!+i::  CycleChromiumProfile(P1)
