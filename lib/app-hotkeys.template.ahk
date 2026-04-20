@@ -40,9 +40,13 @@ P2 := "Profile 1"
 ; ^!+h:: ClipboardCmToFtIn()
 
 ; --- App window management ---
+; REGULAR APPS
 ^!+n:: ManageAppWindows("notepad++.exe", "C:\ProgramData\Microsoft\Windows\Start Menu\Programs", "toggle")
 ^!+d:: ManageAppWindows("discord.exe", EnvGet("USERPROFILE") "\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Discord Inc\Discord")
 ^!+e:: ManageAppWindows("code.exe", EnvGet("USERPROFILE") "\AppData\Local\Programs\Microsoft VS Code\Code.exe", "toggle")
+; APP STORE APPS - use this ps1 cmd to find needed appId (replace "*Claude" with the app you need):
+; (New-Object -ComObject Shell.Application).NameSpace('shell:AppsFolder').Items() | Where-Object { $_.Name -like '*Claude*' } | Select-Object Name, Path, @{N='AppId'; E={$_.ExtendedProperty('System.AppUserModel.ID')}}  
+^!+c:: ManageAppWindows("claude.exe", () => LaunchStoreApp("Claude_pzs8sxrjxfjjc!Claude"), "toggle")   
 
 ; -- Folder shortcuts
 ^!+a:: {

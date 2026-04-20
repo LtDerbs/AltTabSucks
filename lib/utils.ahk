@@ -1,5 +1,16 @@
 ; utils.ahk - General-purpose UI helpers and window management
 
+; Launches a Microsoft Store (MSIX) app from an elevated AHK process.
+; Pass either an AUMID (e.g. "Claude_pzs8sxrjxfjjc!Claude") or an App Execution
+; Alias exe name (e.g. "Claude.exe"). Shell.Application runs in the user (non-elevated)
+; context, which is required to activate MSIX apps from an elevated process.
+LaunchStoreApp(aumidOrExe) {
+    target := InStr(aumidOrExe, "!")
+        ? "shell:AppsFolder\" . aumidOrExe
+        : EnvGet("LOCALAPPDATA") . "\Microsoft\WindowsApps\" . aumidOrExe
+    ComObject("Shell.Application").ShellExecute(target)
+}
+
 ; Escapes a string for safe embedding in a JSON double-quoted value.
 JsonEscape(s) {
     s := StrReplace(s, "\",  "\\")
@@ -172,7 +183,9 @@ ManageAppWindows(processName, exePath := "", mode := "cycle") {
 
     ; No windows at all -> launch
     if visible.Length = 0 && minimized.Length = 0 {
-        if exePath != ""
+        if exePath is Func
+            exePath()
+        else if exePath != ""
             Run(exePath)
         return
     }
