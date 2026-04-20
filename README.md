@@ -1,6 +1,6 @@
 # AltTabSucks
 
-ATS is the alt-tab of the future. It is a keyboard shortcut based solution for app-specific window focus control and profile-aware URL-based browser tab focus control. Supports Brave, Chrome and Firefox at the moment.
+ATS is the alt-tab of the future. It is a keyboard shortcut based solution for app-specific window focus control and profile-aware URL-based browser tab focus control. Supports Brave, Chrome and Firefox at the moment. Windows only for now.
 
 ---
 
@@ -8,18 +8,21 @@ ATS is the alt-tab of the future. It is a keyboard shortcut based solution for a
 
 ### 1. Install prerequisites
 
-Install [AutoHotkey v2](https://www.autohotkey.com/) and PowerShell 7.6+:
+**PowerShell 7.6+** is required:
 
 ```powershell
 winget install AutoHotkey.AutoHotkey
 winget install Microsoft.PowerShell
+winget install Git.Git
 ```
 
-### 2. Run the installer
+### 2. Clone the repo and run the installer
 
 Open a PowerShell 7.6+ prompt in the root AltTabSucks dir and run:
 
 ```powershell
+cd "$env:USERPROFILE\Downloads"; git clone https://github.com/tomatointhesand/AltTabSucks
+cd AltTabSucks
 .\installer.ps1 -Action install
 # Not digitally signed error? Two options:
 Get-ChildItem -Recurse -Filter *.ps1 | Unblock-File
@@ -50,13 +53,13 @@ Get-Content ".\Server\token.txt"
             
 After the first install, everything starts automatically at logon. To reload the AHK script manually: `Ctrl+Alt+Shift+'`.
 
-### 4. Open up app-hotkeys.ahk and set up your desired shortcuts!
+### 4. Edit app-hotkeys.ahk
 
-1. Set your profile name(s) as the P1 and P2 values, as they appear in the browser's profile dropdown menu
-   * Note: Depending how you have your applications installed, some of the default paths included may need editing.
+1. Set the P1 var value to the same profile name as set in the extension options. P2 can be set for a second browser profile if you use one.
+   * Note: Depending how you have your applications installed, some of the included app paths included may need editing.
 1. Open your browser, create a new tab to hydrate the extension's localserver, and press Ctrl+Alt+Shift+L to see a debug readout of your current tabs' states. If that looks accurate, you're ready to start using the browser based shortcuts. Have fun!
 1. Come back to this file any time to edit hotkey triggers, add apps, urls, etc as desired.
-1. Have fun!
+1. All done, have fun!
 
 
 ---
@@ -69,7 +72,9 @@ installer.ps1 does three things:
 2. Writes `AltTabSucks.bat` to your `shell:startup` folder, which waits for the repo directory (handles mapped drive delay at logon) to be available, then launches `AltTabSucks.ahk` automatically on future logons.
 3. Launches `AltTabSucks.ahk` immediately so the current session is live without a logon cycle.
 ---
-**Browser auto-detection:** on first launch, AltTabSucks reads your system's default browser from the registry. If it's a supported Chromium browser (Brave, Chrome, Edge, Vivaldi, or Opera), it writes `lib/config.ahk` automatically and shows a brief toast confirming the browser name and paths used. If auto-detection fails (browser not set as the system default, or unsupported), you'll see a dialog — copy `lib/config.template.ahk` to `lib/config.ahk` and fill in the paths manually.
+Browser auto-detection:
+
+* On first launch, AltTabSucks reads your system's default browser from the registry. If it's a supported Chromium browser (Brave, Chrome, Edge, Vivaldi, or Opera), it writes `lib/config.ahk` automatically and shows a brief toast confirming the browser name and paths used. If auto-detection fails (browser not set as the system default, or unsupported), you'll see a dialog — copy `lib/config.template.ahk` to `lib/config.ahk` and fill in the paths manually.
 ---
 
 ## Managing the server task
