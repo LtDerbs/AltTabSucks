@@ -117,9 +117,15 @@ _ParseExeFromCmd(cmd) {
 _GetHttpsHandlerExe() {
     try {
         progId := RegRead("HKCU\Software\Microsoft\Windows\Shell\Associations\UrlAssociations\https\UserChoice", "ProgId")
-        exe    := _ParseExeFromCmd(RegRead("HKLM\SOFTWARE\Classes\" . progId . "\shell\open\command"))
-        if exe != ""
-            return exe
+        ; Firefox registers its handler classes under HKCU; Chromium browsers use HKLM.
+        ; Check both so we correctly identify the current default regardless of browser family.
+        for regBase in ["HKCU\SOFTWARE\Classes", "HKLM\SOFTWARE\Classes"] {
+            try {
+                exe := _ParseExeFromCmd(RegRead(regBase . "\" . progId . "\shell\open\command"))
+                if exe != ""
+                    return exe
+            }
+        }
     }
     try {
         exe := _ParseExeFromCmd(RegRead("HKLM\SOFTWARE\Classes\https\shell\open\command"))
