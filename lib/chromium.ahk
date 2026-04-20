@@ -322,6 +322,20 @@ CycleChromiumProfile(profileName) {
     }
 
     if matchingWindows.Length = 0 {
+        ; Server had no title data — fall back to all visible Chromium windows rather than
+        ; launching a new instance (extension may not have posted yet after idle period).
+        for hwnd in WinGetList(winFilter) {
+            if !(WinGetStyle("ahk_id " hwnd) & 0x10000000)
+                continue
+            if DllCall("GetWindow", "Ptr", hwnd, "UInt", 4, "Ptr")
+                continue
+            if WinGetTitle("ahk_id " hwnd) = ""
+                continue
+            matchingWindows.Push(hwnd)
+        }
+    }
+
+    if matchingWindows.Length = 0 {
         if _cycleProfileOpenedAt.Has(profileName) && (A_TickCount - _cycleProfileOpenedAt[profileName]) < 3000
             return
         if !RunChromiumProfile(profileName)
@@ -436,19 +450,37 @@ FocusTab(profileName, urlPatterns, openUrl) {
             return
         profileTitles := GetProfileWindowTitles(profileName)
         _focusTabOpenedAt[cooldownKey] := A_TickCount
-        if profileTitles.Length = 0 {
-            ; No windows exist for this profile — launch the browser with both
-            ; the profile directory and the URL so it opens directly to the right tab.
+        ; Find any visible Chromium window — prefer title match, fall back to any window.
+        ; This handles idle periods where the extension hasn't posted fresh data yet.
+        hwnd := profileTitles.Length > 0 ? FindHwndByAnyTitle(profileTitles) : 0
+        if hwnd = 0 {
+            for _hwnd in WinGetList(winFilter) {
+                if !(WinGetStyle("ahk_id " _hwnd) & 0x10000000)
+                    continue
+                if DllCall("GetWindow", "Ptr", _hwnd, "UInt", 4, "Ptr")
+                    continue
+                if WinGetTitle("ahk_id " _hwnd) = ""
+                    continue
+                hwnd := _hwnd
+                break
+            }
+        }
+        if hwnd = 0 {
+            ; No Chromium windows at all — launch with profile + URL directly
             profileDir := GetChromiumProfileDir(profileName)
             if CHROMIUM_EXE != "" && profileDir != ""
                 Run('"' . CHROMIUM_EXE . '" --profile-directory="' . profileDir . '" "' . openUrl . '"')
             return
         }
-        hwnd := FindHwndByAnyTitle(profileTitles)
-        if hwnd = 0
-            return
         WinActivate("ahk_id " hwnd)
-        Run('"' . CHROMIUM_EXE . '" "' . openUrl . '"')
+        postBody := '{"profile":"' . JsonEscape(profileName) . '","openUrl":"' . JsonEscape(openUrl) . '"}'
+        try {
+            http3 := ComObject("WinHttp.WinHttpRequest.5.1")
+            http3.Open("POST", "http://localhost:9876/switchtab", false)
+            http3.SetRequestHeader("Content-Type", "application/json")
+            http3.SetRequestHeader("X-AltTabSucks-Token", _serverToken)
+            http3.Send(postBody)
+        }
         return
     }
 

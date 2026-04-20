@@ -66,7 +66,10 @@ setInterval(pollSwitchQueue, 50);
 // Keep service worker alive between tab events so pollSwitchQueue keeps running.
 // Without this, Chrome suspends the worker and setInterval stops firing.
 function keepAlive() {
-  chrome.runtime.getPlatformInfo(() => setTimeout(keepAlive, 20000));
+  chrome.runtime.getPlatformInfo(() => {
+    postTabs();
+    setTimeout(keepAlive, 20000);
+  });
 }
 keepAlive();
 
