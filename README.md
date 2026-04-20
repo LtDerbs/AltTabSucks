@@ -123,6 +123,18 @@ To regenerate templates manually without committing:
 
 Run `bash dev-scripts/install-hooks.sh` once after cloning to activate the hook.
 
+**Packaging the Firefox extension**
+
+Produces a signed `.xpi` for sideloading. Requires Node.js (the script offers to install via `winget` if missing) and AMO credentials (prompted on first run, stored in `.amo-credentials`).
+
+```powershell
+# Unsigned zip only (for local testing via about:debugging):
+.\dev-scripts\package-firefox-extension.ps1
+
+# Signed xpi (auto-increments patch version, outputs AltTabSucks-firefox.xpi):
+.\dev-scripts\package-firefox-extension.ps1 -Sign
+```
+
 ---
 
 ## Troubleshooting
