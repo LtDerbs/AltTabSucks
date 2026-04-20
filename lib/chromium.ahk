@@ -321,9 +321,11 @@ CycleChromiumProfile(profileName) {
         _chromiumCache[profileName] := { titlesKey: titlesKey, hwnds: matchingWindows }
     }
 
-    if matchingWindows.Length = 0 {
-        ; Server had no title data — fall back to all visible Chromium windows rather than
-        ; launching a new instance (extension may not have posted yet after idle period).
+    if matchingWindows.Length = 0 && !_ServerHasAnyTabData() {
+        ; Server has no data at all (just restarted / extension hasn't posted yet) —
+        ; fall back to all visible Chromium windows rather than launching a new instance.
+        ; If the server has data for other profiles but not this one, the profile is
+        ; genuinely not open and we should launch it instead.
         for hwnd in WinGetList(winFilter) {
             if !(WinGetStyle("ahk_id " hwnd) & 0x10000000)
                 continue
@@ -338,10 +340,22 @@ CycleChromiumProfile(profileName) {
     if matchingWindows.Length = 0 {
         if _cycleProfileOpenedAt.Has(profileName) && (A_TickCount - _cycleProfileOpenedAt[profileName]) < 3000
             return
-        if !RunChromiumProfile(profileName)
+        profileDir := GetChromiumProfileDir(profileName)
+        if CHROMIUM_EXE = "" || profileDir = "" {
             ShowTextGui("Profile not found", "Could not resolve a Chromium profile directory for '" . profileName . "'.", 600, 5)
-        else
-            _cycleProfileOpenedAt[profileName] := A_TickCount
+            return
+        }
+        ; Clear stale server data so _WaitAndCycleProfile only activates freshly-posted windows
+        try {
+            httpDel := ComObject("WinHttp.WinHttpRequest.5.1")
+            httpDel.Open("DELETE", "http://localhost:9876/tabs?profile=" . profileName, false)
+            httpDel.SetRequestHeader("X-AltTabSucks-Token", _serverToken)
+            httpDel.Send()
+        }
+        Run('"' . CHROMIUM_EXE . '" --profile-directory="' . profileDir . '"')
+        _cycleProfileOpenedAt[profileName] := A_TickCount
+        _deadline := A_TickCount + 8000
+        SetTimer(() => _WaitAndCycleProfile(profileName, _deadline), -1000)
         return
     }
 
@@ -359,6 +373,94 @@ CycleChromiumProfile(profileName) {
     bgColor := SampleTitlebarColor(targetHwnd)
     WinActivate("ahk_id " targetHwnd)
     ShowProfileToast(targetHwnd, profileName, bgColor)
+}
+
+; Called after launching a Chromium profile (CycleChromiumProfile path).
+; Polls until the extension posts session-restored tab titles for the profile, then
+; activates the first matching window. This avoids the user needing to press the hotkey
+; twice and ensures the blank startup window is superseded by the real session window.
+_WaitAndCycleProfile(profileName, deadline) {
+    profileTitles := GetProfileWindowTitles(profileName)
+    if profileTitles.Length > 0 {
+        winFilter := "ahk_class Chrome_WidgetWin_1 ahk_exe " . _chromiumExe
+        for hwnd in WinGetList(winFilter) {
+            if !(WinGetStyle("ahk_id " hwnd) & 0x10000000)
+                continue
+            if DllCall("GetWindow", "Ptr", hwnd, "UInt", 4, "Ptr")
+                continue
+            winTitle := WinGetTitle("ahk_id " hwnd)
+            for title in profileTitles {
+                if title != "" && InStr(winTitle, title) {
+                    bgColor := SampleTitlebarColor(hwnd)
+                    WinActivate("ahk_id " hwnd)
+                    ShowProfileToast(hwnd, profileName, bgColor)
+                    return
+                }
+            }
+        }
+    }
+    if A_TickCount < deadline
+        SetTimer(() => _WaitAndCycleProfile(profileName, deadline), -500)
+}
+
+; Called after launching a new Chromium profile window (no URL on the command line).
+; Polls /findtab every 500ms until a session-restored tab matches one of the URL patterns,
+; then focuses it via /switchtab — no duplicate tab. Falls back to openUrl on timeout
+; (tab genuinely not in the restored session). Server data is cleared before launch so
+; stale window/tab IDs from the previous session are never matched.
+_WaitForTabOrOpen(profileName, cleanPatterns, openUrl, deadline) {
+    for pattern in cleanPatterns {
+        try {
+            http := ComObject("WinHttp.WinHttpRequest.5.1")
+            http.Open("GET", "http://localhost:9876/findtab?profile=" . profileName . "&url=" . pattern, false)
+            http.SetRequestHeader("X-AltTabSucks-Token", _serverToken)
+            http.Send()
+            body := Trim(StrReplace(http.ResponseText, "`r", ""))
+            if body != "" {
+                line     := StrSplit(body, "`n")[1]
+                pipe     := InStr(line, "|")
+                windowId := Integer(SubStr(line, 1, pipe - 1))
+                tabId    := Integer(SubStr(line, pipe + 1))
+                postBody := '{"profile":"' . JsonEscape(profileName) . '","windowId":' . windowId . ',"tabId":' . tabId . '}'
+                http2 := ComObject("WinHttp.WinHttpRequest.5.1")
+                http2.Open("POST", "http://localhost:9876/switchtab", false)
+                http2.SetRequestHeader("Content-Type", "application/json")
+                http2.SetRequestHeader("X-AltTabSucks-Token", _serverToken)
+                http2.Send(postBody)
+                return
+            }
+        } catch {
+        }
+    }
+    if A_TickCount < deadline {
+        SetTimer(() => _WaitForTabOrOpen(profileName, cleanPatterns, openUrl, deadline), -500)
+        return
+    }
+    ; Timeout — tab not in restored session; open it as a new tab
+    postBody := '{"profile":"' . JsonEscape(profileName) . '","openUrl":"' . JsonEscape(openUrl) . '"}'
+    try {
+        http := ComObject("WinHttp.WinHttpRequest.5.1")
+        http.Open("POST", "http://localhost:9876/switchtab", false)
+        http.SetRequestHeader("Content-Type", "application/json")
+        http.SetRequestHeader("X-AltTabSucks-Token", _serverToken)
+        http.Send(postBody)
+    }
+}
+
+; Returns true if the server has tab data for any profile.
+; Used to distinguish "server just restarted / extension hasn't posted yet" (no data at all)
+; from "this profile is not open" (data exists for other profiles but not this one).
+_ServerHasAnyTabData() {
+    try {
+        http := ComObject("WinHttp.WinHttpRequest.5.1")
+        http.Open("GET", "http://localhost:9876/tabs", false)
+        http.SetRequestHeader("X-AltTabSucks-Token", _serverToken)
+        http.Send()
+        body := Trim(StrReplace(http.ResponseText, "`r", ""))
+        return body != "" && body != "{}" && body != "null"
+    } catch {
+        return false
+    }
 }
 
 ; Returns the first Chromium HWND whose title matches any of the given tab titles
@@ -450,10 +552,11 @@ FocusTab(profileName, urlPatterns, openUrl) {
             return
         profileTitles := GetProfileWindowTitles(profileName)
         _focusTabOpenedAt[cooldownKey] := A_TickCount
-        ; Find any visible Chromium window — prefer title match, fall back to any window.
-        ; This handles idle periods where the extension hasn't posted fresh data yet.
+        ; Find any visible Chromium window for this profile, or any window if the server
+        ; has no data at all (just restarted / idle). If the server has data for other
+        ; profiles but not this one, the profile is not open — fall through to launch it.
         hwnd := profileTitles.Length > 0 ? FindHwndByAnyTitle(profileTitles) : 0
-        if hwnd = 0 {
+        if hwnd = 0 && !_ServerHasAnyTabData() {
             for _hwnd in WinGetList(winFilter) {
                 if !(WinGetStyle("ahk_id " _hwnd) & 0x10000000)
                     continue
@@ -466,10 +569,21 @@ FocusTab(profileName, urlPatterns, openUrl) {
             }
         }
         if hwnd = 0 {
-            ; No Chromium windows at all — launch with profile + URL directly
+            ; No Chromium windows at all — clear stale server data, launch without the URL
+            ; so session restore runs cleanly, then poll /findtab until a restored tab matches.
             profileDir := GetChromiumProfileDir(profileName)
-            if CHROMIUM_EXE != "" && profileDir != ""
-                Run('"' . CHROMIUM_EXE . '" --profile-directory="' . profileDir . '" "' . openUrl . '"')
+            if CHROMIUM_EXE = "" || profileDir = ""
+                return
+            try {
+                httpDel := ComObject("WinHttp.WinHttpRequest.5.1")
+                httpDel.Open("DELETE", "http://localhost:9876/tabs?profile=" . profileName, false)
+                httpDel.SetRequestHeader("X-AltTabSucks-Token", _serverToken)
+                httpDel.Send()
+            }
+            Run('"' . CHROMIUM_EXE . '" --profile-directory="' . profileDir . '"')
+            _deadline := A_TickCount + 8000
+            _pats     := cleanPatterns
+            SetTimer(() => _WaitForTabOrOpen(profileName, _pats, openUrl, _deadline), -1000)
             return
         }
         WinActivate("ahk_id " hwnd)

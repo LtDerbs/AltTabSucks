@@ -3,8 +3,8 @@
 ; Key notation: `^`=Ctrl, `!`=Alt, `+`=Shift, `#`=Win, `~`=pass-through
 ;--- BEGIN SENSITIVE ---
 
-;P1 := "Default"
 P1 := "Default"
+;P1 := "Default"
 P2 := "Profile 1"
 ^!+s:: FocusTab(P2, ["YOUR_URL"],           "https://YOUR_URL")
 ^!+j:: FocusTab(P2, ["https://YOUR_URL","https://YOUR_URL","https://YOUR_URL","https://YOUR_URL"],  "https://YOUR_URL")
@@ -17,6 +17,7 @@ P2 := "Profile 1"
 ; --- Brave tab focus (profile 1) ---
 ^!+m:: FocusTab(P1, ["google.com/maps","bing.com/maps","apple.com/maps","openstreetmap.org"],     "https://maps.google.com")
 ^!+v:: FocusTab(P1, ["chat.google.com"],     "https://chat.google.com/")
+^+#v:: FocusTab(P1, ["meet.google.com"], "https://ebay.com")
 ^!+g:: FocusTab(P1, ["mail.google.com","workspace,google.com"],     "https://mail.google.com")
 ^!+y:: FocusTab(P1, ["youtube.com"],         "https://youtube.com")
 ^!+r:: FocusTab(P1, ["reddit.com"],          "https://reddit.com/r/sailing")

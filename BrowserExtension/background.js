@@ -17,7 +17,7 @@ async function postTabs() {
         .filter(t => t.windowId === w.id)
         .map(t => ({
           id: t.id,
-          url: (() => { try { const u = new URL(t.url); const seg = u.pathname.split('/')[1]; return u.origin + (seg ? '/' + seg : ''); } catch { return t.url; } })(),
+          url: (() => { const raw = t.pendingUrl || t.url; try { const u = new URL(raw); const seg = u.pathname.split('/')[1]; return u.origin + (seg ? '/' + seg : ''); } catch { return raw; } })(),
           title: t.title,
           active: t.active,
           pinned: t.pinned,
@@ -48,7 +48,28 @@ async function pollSwitchQueue() {
     if (res.status === 200) {
       const cmd = await res.json();
       if (cmd && cmd.openUrl && /^https?:\/\//i.test(cmd.openUrl)) {
-        await chrome.tabs.create({ url: cmd.openUrl });
+        try {
+          const u = new URL(cmd.openUrl);
+          const seg = u.pathname.split('/')[1];
+          const normalized = u.origin + (seg ? '/' + seg : '');
+          const allTabs = await chrome.tabs.query({});
+          const existing = allTabs.find(t => {
+            const raw = t.pendingUrl || t.url;
+            try {
+              const tu = new URL(raw);
+              const tseg = tu.pathname.split('/')[1];
+              return tu.origin + (tseg ? '/' + tseg : '') === normalized;
+            } catch { return false; }
+          });
+          if (existing) {
+            await chrome.tabs.update(existing.id, { active: true });
+            if (chrome.windows) await chrome.windows.update(existing.windowId, { focused: true });
+          } else {
+            await chrome.tabs.create({ url: cmd.openUrl });
+          }
+        } catch {
+          await chrome.tabs.create({ url: cmd.openUrl });
+        }
       } else if (cmd &&
           Number.isInteger(cmd.tabId)    && cmd.tabId    > 0 &&
           Number.isInteger(cmd.windowId) && cmd.windowId > 0) {
