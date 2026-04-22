@@ -14,6 +14,7 @@ ATS is the alt-tab of the future. It is a keyboard shortcut based solution for a
 winget install AutoHotkey.AutoHotkey
 winget install Microsoft.PowerShell
 winget install Git.Git
+
 ```
 
 ### 2. Clone the repo and run the installer
@@ -21,7 +22,8 @@ winget install Git.Git
 Open a PowerShell 7.6+ prompt in the root AltTabSucks dir and run:
 
 ```powershell
-cd "$env:USERPROFILE\Downloads"; git clone https://github.com/tomatointhesand/AltTabSucks
+cd "$env:USERPROFILE\Downloads"
+git clone https://github.com/tomatointhesand/AltTabSucks
 cd AltTabSucks
 .\installer.ps1 -Action install
 # Not digitally signed error? Two options:
@@ -31,53 +33,59 @@ pwsh -ExecutionPolicy Bypass -File .\installer.ps1 -Action install
 
 ```
 
-On first run the server generates a random auth token and saves it to `Server\token.txt` (gitignored). The token is printed to the console — copy it for the next step. To retrieve it later:
-
-```powershell
-Get-Content ".\Server\token.txt"
-```
+Installer will display an auth token - **copy it to clipboard**. (It is also saved to `Server\token.txt` (gitignored) for future reference.)
 
 ### 3. Load and configure the browser extension
 
-1. Install the extension:
-   * Chrome/Brave:
-      1. Go to your browser's extensions page (e.g. `brave://extensions`, `chrome://extensions`)
-      1. Enable **Developer mode** (top-right toggle)
-      1. Click **Load unpacked** and select the `BrowserExtension/` folder
-   * Firefox:
-      1. Go to `about:addons`
-      1. Install AltTabSucks.xpi 
-1. Open the extension **Options** and set two fields: 
-      1. Auth token - Paste the auth token from copied from prior step, and click save.
-      1. Profile dropdown - after saving the auth token, refresh the profile list and select the current active profile name.
+   <details>
+   <summary>Chrome/Brave</summary>
+   
+   1. Go to your browser's extensions page (e.g. `brave://extensions`, `chrome://extensions`)
+   1. Enable **Developer mode** (top-right toggle)
+   1. Click **Load unpacked** and select the `BrowserExtension/` folder
+   </details>
+   <details>
+   <summary>Firefox</summary>
+   
+   1. Go to `about:addons`
+   1. Install AltTabSucks.xpi 
+   1. Open the extension **Options** and set two fields: 
+      * Auth token - Paste the auth token from copied from prior step, then refresh the next field's dropdown.
+      * Profile dropdown - after saving the auth token, refresh the profile list and select the current active profile name.
+   </details>
             
-After the first install, everything starts automatically at logon. To reload the AHK script manually: `Ctrl+Alt+Shift+'`.
+      After the first install, everything starts automatically at logon. To reload the AHK script manually: `Ctrl+Alt+Shift+'`.
 
-### 4. Edit lib\app-hotkeys.ahk
+
+
+
+### 4. Open lib\app-hotkeys.ahk
 
 1. Set the P1 var value to the same profile name as set in the extension options. P2 can be set for a second browser profile if you use one.
    * Note: Depending how you have your applications installed, some of the included app paths included may need editing.
-1. Open your browser, create a new tab to hydrate the extension's localserver, and press Ctrl+Alt+Shift+L to see a debug readout of your current tabs' states. If that looks accurate, you're ready to start using the browser based shortcuts. Have fun!
+1. Open your browser, create a new tab to hydrate the extension's localserver
+   * **Press Ctrl+Alt+Shift+/** (forward slash) **to see a quick reference for all mapped hotkeys**
+   * Press Ctrl+Alt+Shift+L to see a debug readout of your current tabs' states
 1. Come back to this file any time to edit hotkey triggers, add apps, urls, etc as desired.
 1. All done, have fun!
 
 
 ---
-MORE INFO
+## MORE INFO
 
 `installer.ps1 -Action install` does four things:
 
 1. Registers a Task Scheduler task named **AltTabSucks** that runs `AltTabSucksServer.ps1`:
    - Starts automatically at logon (runs hidden, no console window)
    - Runs with elevated privileges so `HttpListener` can bind to port 9876
-2. Writes `AltTabSucks.bat` to your `shell:startup` folder, which waits for the repo directory (handles mapped drive delay at logon) to be available, then launches `AltTabSucks.ahk` automatically on future logons.
+2. Writes `AltTabSucks.bat` to your `shell:startup` folder, then launches `AltTabSucks.ahk` automatically on future logons.
 3. Disables the **Ctrl+Alt+Win+Shift** shortcut that opens Copilot/Office by redirecting the `ms-officeapp` protocol handler to a no-op (`rundll32`).
 4. Launches `AltTabSucks.ahk` immediately so the current session is live without a logon cycle.
 
 ---
 Browser selection:
 
-On first launch (or after reinstalling), AltTabSucks scans for installed browsers and presents a choice dialog. Supported browsers: **Brave, Chrome, Edge, Vivaldi, Opera, and Firefox**. After choosing, you will be offered the option to open Windows Default Apps to set it as your system default browser. The chosen browser and its paths are saved to `lib/config.ahk` (gitignored). To switch browsers later, re-run the installer — it deletes `lib/config.ahk` so the choice dialog reappears on next launch.
+On first launch (or after reinstalling), AltTabSucks scans for installed browsers and presents a choice dialog. Supported browsers: **Brave, Chrome, Firefox**. After choosing, you will be offered the option to open Windows Default Apps to verify or set your system default browser. The chosen browser and its paths are saved to `lib/config.ahk` (gitignored). To switch browsers later, re-run the installer — it deletes `lib/config.ahk` so the choice dialog reappears on next launch.
 
 ---
 
