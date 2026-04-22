@@ -70,6 +70,35 @@ async function pollSwitchQueue() {
         } catch {
           await chrome.tabs.create({ url: cmd.openUrl });
         }
+      } else if (cmd && cmd.mergeTabs) {
+        try {
+          const allTabs = await chrome.tabs.query({});
+          const windowIds = [...new Set(allTabs.map(t => t.windowId))];
+          if (windowIds.length < 2) return;
+          const [focusedTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+          if (!focusedTab) return;
+          const sourceWindowId = focusedTab.windowId;
+          const targetWindowId = windowIds.find(id => id !== sourceWindowId);
+          if (!targetWindowId) return;
+          const tabsToMove = allTabs
+            .filter(t => t.windowId === sourceWindowId)
+            .sort((a, b) => a.index - b.index);
+          for (const tab of tabsToMove) {
+            await chrome.tabs.move(tab.id, { windowId: targetWindowId, index: -1 });
+          }
+          if (chrome.windows) await chrome.windows.update(targetWindowId, { focused: true });
+        } catch {}
+      } else if (cmd && cmd.splitTab) {
+        try {
+          const [activeTab] = await chrome.tabs.query({ active: true, lastFocusedWindow: true });
+          if (activeTab) {
+            if (chrome.windows) {
+              await chrome.windows.create({ tabId: activeTab.id });
+            } else {
+              await chrome.tabs.move(activeTab.id, { windowId: -1, index: -1 });
+            }
+          }
+        } catch {}
       } else if (cmd &&
           Number.isInteger(cmd.tabId)    && cmd.tabId    > 0 &&
           Number.isInteger(cmd.windowId) && cmd.windowId > 0) {
@@ -99,6 +128,7 @@ postTabs();
 chrome.tabs.onCreated.addListener(postTabs);
 chrome.tabs.onRemoved.addListener(postTabs);
 chrome.tabs.onMoved.addListener(postTabs);
+chrome.tabs.onActivated.addListener(postTabs);
 chrome.tabs.onAttached.addListener(postTabs);
 chrome.tabs.onDetached.addListener(postTabs);
 chrome.windows.onCreated.addListener(postTabs);

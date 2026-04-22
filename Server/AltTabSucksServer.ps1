@@ -179,7 +179,11 @@ try { while ($listener.IsListening) {
                 $body    = $reader.ReadToEnd()
                 $reader.Close()
                 $payload = $body | ConvertFrom-Json
-                if ($payload.openUrl) {
+                if ($payload.splitTab) {
+                    $switchQueue[$payload.profile] = @{ splitTab = $true }
+                } elseif ($payload.mergeTabs) {
+                    $switchQueue[$payload.profile] = @{ mergeTabs = $true }
+                } elseif ($payload.openUrl) {
                     $switchQueue[$payload.profile] = @{ openUrl = $payload.openUrl }
                 } else {
                     $switchQueue[$payload.profile] = @{ windowId = $payload.windowId; tabId = $payload.tabId }

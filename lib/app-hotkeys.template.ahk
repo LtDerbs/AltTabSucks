@@ -3,48 +3,51 @@
 ; Key notation: `^`=Ctrl, `!`=Alt, `+`=Shift, `#`=Win, `~`=pass-through
 ;--- BEGIN SENSITIVE ---
 
-;P1 := "Default"
 P1 := "Default"
+;P1 := "Default"
 P2 := "Profile 1"
 ^!+s:: FocusTab(P2, ["YOUR_URL"],           "https://YOUR_URL")
 ^!+j:: FocusTab(P2, ["https://YOUR_URL","https://YOUR_URL","https://YOUR_URL","https://YOUR_URL"],  "https://YOUR_URL")
 ^!+b:: FocusTab(P2, ["YOUR_URL"],           "https://YOUR_URL")
 ^!+z:: FocusTab(P2, ["YOUR_URL"],             "https://YOUR_URL")
-
+^!+r:: FocusTab(P1, ["YOUR_URL"],          "https://YOUR_URL")
+^+#c:: FocusTab(P1, ["YOUR_URL"], "https://YOUR_URL")
 ;--- END SENSITIVE ---
 
 ; --- BEGIN COMMON ---
 
-; --- Brave tab focus (profile 1) ---
+; Browser (NOT UNIVERSAL, only applies when browser window is focused)
+!x::  SplitFocusedTab() ; tear focused tab into its own window, snap both side-by-side
+!z::  MergeFocusedWindow() ; merge focused window with other window
+; --- Browser tab focus (profile 1) --- (UNIVERSAL)
 ^!+m:: FocusTab(P1, ["google.com/maps","bing.com/maps","apple.com/maps","openstreetmap.org"],     "https://maps.google.com")
 ^!+v:: FocusTab(P1, ["chat.google.com"],     "https://chat.google.com/")
 ^+#v:: FocusTab(P1, ["meet.google.com"], "https://meet.google.com")
 ^!+g:: FocusTab(P1, ["mail.google.com","workspace,google.com"],     "https://mail.google.com")
 ^!+y:: FocusTab(P1, ["youtube.com"],         "https://youtube.com")
-^!+r:: FocusTab(P1, ["reddit.com"],          "https://reddit.com/r/sailing")
 ^!+x:: FocusTab(P1, ["messages.google.com"], "https://messages.google.com")
 ^!+k:: FocusTab(P1, ["keep.google.com"], "https://keep.google.com")
 ^+#g:: FocusTab(P1, ["gemini.google.com"], "https://gemini.google.com")
-^+#c:: FocusTab(P1, ["claude.ai"], "https://claude.ai")
 ^!+p:: FocusTab(P1, ["ebay.com"], "https://ebay.com")
+^+#y:: FocusTab(P1, ["music.youtube.com"], "https://music.youtube.com")
 
-; --- Brave tab focus (profile 2) ---
+; --- Browser tab focus (profile 2) ---
 ^!+o:: FocusTab(P2, ["outlook.cloud.microsoft"], "https://outlook.cloud.microsoft")
 ^!+u:: FocusTab(P2, ["teams.microsoft.com"],     "https://teams.microsoft.com")
 
-; --- Brave window cycling ---
+; --- Brave window cycling --- (UNIVERSAL)
 ^!+i::  CycleChromiumProfile(P1)
 ^+#i::  CycleChromiumProfile(P2)
 
-; --- Utilities ---
+; --- Utilities --- (UNIVERSAL)
 ; ^!+C:: ClipboardToSqlIn()
 ; ^!+h:: ClipboardCmToFtIn()
 
-; --- App window management ---
+; --- App window management --- (UNIVERSAL)
 ; REGULAR APPS
 ^!+n:: ManageAppWindows("notepad++.exe", "C:\ProgramData\Microsoft\Windows\Start Menu\Programs", "toggle")
 ^!+d:: ManageAppWindows("discord.exe", EnvGet("USERPROFILE") "\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Discord Inc\Discord")
-^!+e:: ManageAppWindows("code.exe", EnvGet("USERPROFILE") "\AppData\Local\Programs\Microsoft VS Code\Code.exe", "toggle")
+^!+e:: ManageAppWindows("code.exe", EnvGet("USERPROFILE") "\AppData\Local\Programs\Microsoft VS Code\Code.exe", "cycle")
 ; APP STORE APPS - use this ps1 cmd to find needed appId (replace "*Claude" with the app you need):
 ; (New-Object -ComObject Shell.Application).NameSpace('shell:AppsFolder').Items() | Where-Object { $_.Name -like '*Claude*' } | Select-Object Name, Path, @{N='AppId'; E={$_.ExtendedProperty('System.AppUserModel.ID')}}  
 ^!+c:: ManageAppWindows("claude.exe", () => LaunchStoreApp("Claude_pzs8sxrjxfjjc!Claude"), "toggle")   
@@ -52,6 +55,10 @@ P2 := "Profile 1"
 ; -- Folder shortcuts
 ^!+a:: {
     run "G:\My Drive\apps-drivers-saves-portable"
+    return
+}
+^+#d:: {
+    run EnvGet("USERPROFILE") "\Downloads"
     return
 }
 

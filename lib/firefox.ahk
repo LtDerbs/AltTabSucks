@@ -344,3 +344,76 @@ RunFirefoxProfile(profileName) {
     Run('"' . FIREFOX_EXE . '" -P "' . profileName . '"')
     return true
 }
+
+; Moves all tabs from the focused Firefox window into the other window for the same
+; profile. Same logic as MergeFocusedWindow but using the Firefox window filter.
+MergeFocusedWindowFirefox() {
+    winFilter  := "ahk_class MozillaWindowClass ahk_exe firefox.exe"
+    activeHwnd := WinActive(winFilter)
+    if !activeHwnd
+        return
+    profileName := _DetectProfileFromWindow(activeHwnd, true)
+    if profileName = "" {
+        ShowProfileToast(activeHwnd, "no profile", "CC0000")
+        return
+    }
+    postBody := '{"profile":"' . JsonEscape(profileName) . '","mergeTabs":true}'
+    try {
+        http := ComObject("WinHttp.WinHttpRequest.5.1")
+        http.Open("POST", "http://localhost:9876/switchtab", false)
+        http.SetRequestHeader("Content-Type", "application/json")
+        http.SetRequestHeader("X-AltTabSucks-Token", _serverToken)
+        http.Send(postBody)
+    } catch {
+        return
+    }
+}
+
+; Moves the active tab of the focused Firefox window into its own new window, then
+; snaps the original window and new window side-by-side on the current monitor.
+; The extension uses chrome.tabs.move(tabId, {windowId:-1}) since Firefox MV3 does
+; not permit the windows permission and chrome.windows is therefore unavailable.
+SplitFocusedTabFirefox() {
+    winFilter  := "ahk_class MozillaWindowClass ahk_exe firefox.exe"
+    activeHwnd := WinActive(winFilter)
+    if !activeHwnd
+        return
+
+    WinGetPos(&wx, &wy, &ww, &wh, "ahk_id " activeHwnd)
+    cx := wx + ww // 2
+    cy := wy + wh // 2
+    monLeft := 0, monTop := 0, monRight := A_ScreenWidth, monBottom := A_ScreenHeight
+    Loop MonitorGetCount() {
+        MonitorGetWorkArea(A_Index, &ml, &mt, &mr, &mb)
+        if cx >= ml && cx < mr && cy >= mt && cy < mb {
+            monLeft := ml, monTop := mt, monRight := mr, monBottom := mb
+            break
+        }
+    }
+
+    profileName := _DetectProfileFromWindow(activeHwnd, true)
+    if profileName = "" {
+        ShowProfileToast(activeHwnd, "no profile", "CC0000")
+        return
+    }
+
+    existingHwnds := Map()
+    for hwnd in WinGetList(winFilter)
+        existingHwnds[hwnd] := true
+
+    postBody := '{"profile":"' . JsonEscape(profileName) . '","splitTab":true}'
+    try {
+        http := ComObject("WinHttp.WinHttpRequest.5.1")
+        http.Open("POST", "http://localhost:9876/switchtab", false)
+        http.SetRequestHeader("Content-Type", "application/json")
+        http.SetRequestHeader("X-AltTabSucks-Token", _serverToken)
+        http.Send(postBody)
+    } catch {
+        return
+    }
+
+    halfW    := (monRight - monLeft) // 2
+    winH     := monBottom - monTop
+    _deadline := A_TickCount + 3000
+    SetTimer(() => _WaitAndSnapSplit(activeHwnd, existingHwnds, monLeft, monTop, halfW, winH, winFilter, _deadline), -100)
+}

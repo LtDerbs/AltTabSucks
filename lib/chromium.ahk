@@ -617,3 +617,185 @@ RunChromiumProfile(profileName) {
     Run('"' . CHROMIUM_EXE . '" --profile-directory="' . profileDir . '"')
     return true
 }
+
+; Moves all tabs from the focused Chromium window into the other window for the same
+; profile, then lets the browser close the now-empty source window automatically.
+; Does nothing if the focused window is not a browser window, profile cannot be detected,
+; or the extension finds fewer than two windows for this profile.
+MergeFocusedWindow() {
+    if CHROMIUM_EXE = "" {
+        MergeFocusedWindowFirefox()
+        return
+    }
+    winFilter  := "ahk_class Chrome_WidgetWin_1 ahk_exe " . _chromiumExe
+    activeHwnd := WinActive(winFilter)
+    if !activeHwnd
+        return
+    profileName := _DetectProfileFromWindow(activeHwnd)
+    if profileName = "" {
+        ShowProfileToast(activeHwnd, "no profile", "CC0000")
+        return
+    }
+    postBody := '{"profile":"' . JsonEscape(profileName) . '","mergeTabs":true}'
+    try {
+        http := ComObject("WinHttp.WinHttpRequest.5.1")
+        http.Open("POST", "http://localhost:9876/switchtab", false)
+        http.SetRequestHeader("Content-Type", "application/json")
+        http.SetRequestHeader("X-AltTabSucks-Token", _serverToken)
+        http.Send(postBody)
+    } catch {
+        return
+    }
+}
+
+; Moves the active tab of the focused Chromium window into its own new window, then
+; snaps the original window and new window side-by-side on the current monitor.
+; Profile is auto-detected from the active window title via the server.
+SplitFocusedTab() {
+    if CHROMIUM_EXE = "" {
+        SplitFocusedTabFirefox()
+        return
+    }
+
+    winFilter  := "ahk_class Chrome_WidgetWin_1 ahk_exe " . _chromiumExe
+    activeHwnd := WinActive(winFilter)
+    if !activeHwnd
+        return
+
+    ; Detect profile first — this makes HTTP calls and is the most likely failure point
+    profileName := _DetectProfileFromWindow(activeHwnd)
+    if profileName = "" {
+        ShowProfileToast(activeHwnd, "no profile", "CC0000")
+        return
+    }
+
+    ; Find which monitor work area contains the window's center point
+    WinGetPos(&wx, &wy, &ww, &wh, "ahk_id " activeHwnd)
+    cx := wx + ww // 2
+    cy := wy + wh // 2
+    monLeft := 0, monTop := 0, monRight := A_ScreenWidth, monBottom := A_ScreenHeight
+    Loop MonitorGetCount() {
+        MonitorGetWorkArea(A_Index, &ml, &mt, &mr, &mb)
+        if cx >= ml && cx < mr && cy >= mt && cy < mb {
+            monLeft := ml, monTop := mt, monRight := mr, monBottom := mb
+            break
+        }
+    }
+
+    ; Snapshot all existing browser HWNDs so we can identify the newly created window
+    existingHwnds := Map()
+    for hwnd in WinGetList(winFilter)
+        existingHwnds[hwnd] := true
+
+    ; Ask the extension to detach the active tab into its own window
+    postBody := '{"profile":"' . JsonEscape(profileName) . '","splitTab":true}'
+    try {
+        http := ComObject("WinHttp.WinHttpRequest.5.1")
+        http.Open("POST", "http://localhost:9876/switchtab", false)
+        http.SetRequestHeader("Content-Type", "application/json")
+        http.SetRequestHeader("X-AltTabSucks-Token", _serverToken)
+        http.Send(postBody)
+    } catch {
+        return
+    }
+
+    halfW    := (monRight - monLeft) // 2
+    winH     := monBottom - monTop
+    _deadline := A_TickCount + 3000
+    SetTimer(() => _WaitAndSnapSplit(activeHwnd, existingHwnds, monLeft, monTop, halfW, winH, winFilter, _deadline), -100)
+}
+
+; Infers which profile owns a browser window by matching its title against server-side
+; active-tab titles. Pass isFirefox := true to use the Firefox profile cache.
+;
+; Detection strategy (in order):
+;   1. Fast path: only one profile configured → return it immediately.
+;   2. Title match: active tab title from server is a substring of the OS window title.
+;   3. Fallback: if title matching fails but exactly one profile has any server data,
+;      that profile must be the one running — handles stale titles after tab moves.
+_DetectProfileFromWindow(hwnd, isFirefox := false) {
+    profileCache := isFirefox ? _firefoxProfileDirCache : _chromiumProfileDirCache
+    if profileCache.Count = 1 {
+        for profileName in profileCache
+            return profileName
+    }
+
+    ; Fetch server titles once per profile and reuse for both match and fallback
+    allTitles := Map()
+    for profileName in profileCache
+        allTitles[profileName] := GetProfileWindowTitles(profileName)
+
+    winTitle := WinGetTitle("ahk_id " hwnd)
+    for profileName, titles in allTitles
+        for title in titles
+            if title != "" && InStr(winTitle, title)
+                return profileName
+
+    ; Fallback: title match failed (stale server data) — use the sole profile with data
+    profilesWithData := []
+    for profileName, titles in allTitles
+        if titles.Length > 0
+            profilesWithData.Push(profileName)
+    if profilesWithData.Length = 1
+        return profilesWithData[1]
+
+    return ""
+}
+
+; Polls until a new browser window appears (not in existingHwnds), then snaps
+; the original and new windows side-by-side on the target monitor work area.
+; winFilter must match the browser being used (Chromium or Firefox).
+_WaitAndSnapSplit(origHwnd, existingHwnds, monLeft, monTop, halfW, winH, winFilter, deadline) {
+    newHwnd   := 0
+    for hwnd in WinGetList(winFilter) {
+        if existingHwnds.Has(hwnd)
+            continue
+        if !(WinGetStyle("ahk_id " hwnd) & 0x10000000)
+            continue
+        if DllCall("GetWindow", "Ptr", hwnd, "UInt", 4, "Ptr")
+            continue
+        if WinGetTitle("ahk_id " hwnd) = ""
+            continue
+        newHwnd := hwnd
+        break
+    }
+    if newHwnd = 0 {
+        if A_TickCount < deadline
+            SetTimer(() => _WaitAndSnapSplit(origHwnd, existingHwnds, monLeft, monTop, halfW, winH, winFilter, deadline), -100)
+        return
+    }
+
+    ; Restore both windows from maximized state before repositioning
+    if WinGetMinMax("ahk_id " origHwnd) = 1
+        WinRestore("ahk_id " origHwnd)
+    if WinGetMinMax("ahk_id " newHwnd) = 1
+        WinRestore("ahk_id " newHwnd)
+
+    ; Chromium windows have invisible drop-shadow borders (~8px each side on Win10/11).
+    ; WinMove positions the full rect including those invisible regions, so placing two
+    ; windows edge-to-edge without compensation leaves a visible gap = rightBorder + leftBorder.
+    ; DwmGetWindowAttribute(DWMWA_EXTENDED_FRAME_BOUNDS=9) gives the actual visible rect so
+    ; we can compute each window's invisible border widths and compensate exactly.
+    ob := _GetWindowFrameBorders(origHwnd)
+    nb := _GetWindowFrameBorders(newHwnd)
+
+    WinMove(monLeft         - ob.left, monTop - ob.top, halfW + ob.left + ob.right, winH + ob.top + ob.bottom, "ahk_id " origHwnd)
+    WinMove(monLeft + halfW - nb.left, monTop - nb.top, halfW + nb.left + nb.right, winH + nb.top + nb.bottom, "ahk_id " newHwnd)
+    WinActivate("ahk_id " newHwnd)
+}
+
+; Returns the invisible border widths of a window using DWM's actual visible frame rect.
+; DWMWA_EXTENDED_FRAME_BOUNDS (9) gives the true on-screen visible bounds; the difference
+; from WinGetPos gives how much each side is hidden by the drop-shadow / extended frame.
+_GetWindowFrameBorders(hwnd) {
+    rect := Buffer(16, 0)
+    if DllCall("dwmapi\DwmGetWindowAttribute", "Ptr", hwnd, "UInt", 9, "Ptr", rect, "UInt", 16) != 0
+        return {left: 0, top: 0, right: 0, bottom: 0}
+    WinGetPos(&wx, &wy, &ww, &wh, "ahk_id " hwnd)
+    return {
+        left:   NumGet(rect,  0, "Int") - wx,
+        top:    NumGet(rect,  4, "Int") - wy,
+        right:  (wx + ww) - NumGet(rect,  8, "Int"),
+        bottom: (wy + wh) - NumGet(rect, 12, "Int")
+    }
+}
