@@ -3,8 +3,8 @@
 ; Key notation: `^`=Ctrl, `!`=Alt, `+`=Shift, `#`=Win, `~`=pass-through
 ;--- BEGIN SENSITIVE ---
 
-P1 := "Default"
 ;P1 := "Default"
+P1 := "Default"
 P2 := "Profile 1"
 ^!+s:: FocusTab(P2, ["YOUR_URL"],           "https://YOUR_URL")
 ^!+j:: FocusTab(P2, ["https://YOUR_URL","https://YOUR_URL","https://YOUR_URL","https://YOUR_URL"],  "https://YOUR_URL")
@@ -17,8 +17,9 @@ P2 := "Profile 1"
 ; --- BEGIN COMMON ---
 
 ; Browser (NOT UNIVERSAL, only applies when browser window is focused)
-!x::  SplitFocusedTab() ; tear focused tab into its own window, snap both side-by-side
-!z::  MergeFocusedWindow() ; merge focused window with other window
+!x::  SplitFocusedTab()
+!z::  MergeFocusedWindow()
+
 ; --- Browser tab focus (profile 1) --- (UNIVERSAL)
 ^!+m:: FocusTab(P1, ["google.com/maps","bing.com/maps","apple.com/maps","openstreetmap.org"],     "https://maps.google.com")
 ^!+v:: FocusTab(P1, ["chat.google.com"],     "https://chat.google.com/")
@@ -49,48 +50,33 @@ P2 := "Profile 1"
 ^!+d:: ManageAppWindows("discord.exe", EnvGet("USERPROFILE") "\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Discord Inc\Discord")
 ^!+e:: ManageAppWindows("code.exe", EnvGet("USERPROFILE") "\AppData\Local\Programs\Microsoft VS Code\Code.exe", "cycle")
 ; APP STORE APPS - use this ps1 cmd to find needed appId (replace "*Claude" with the app you need):
-; (New-Object -ComObject Shell.Application).NameSpace('shell:AppsFolder').Items() | Where-Object { $_.Name -like '*Claude*' } | Select-Object Name, Path, @{N='AppId'; E={$_.ExtendedProperty('System.AppUserModel.ID')}}  
-^!+c:: ManageAppWindows("claude.exe", () => LaunchStoreApp("Claude_pzs8sxrjxfjjc!Claude"), "toggle")   
+; (New-Object -ComObject Shell.Application).NameSpace('shell:AppsFolder').Items() | Where-Object { $_.Name -like '*Claude*' } | Select-Object Name, Path, @{N='AppId'; E={$_.ExtendedProperty('System.AppUserModel.ID')}}
+^!+c:: ManageAppWindows("claude.exe", () => LaunchStoreApp("Claude_pzs8sxrjxfjjc!Claude"), "toggle")
 
-; -- Folder shortcuts
-^!+a:: {
-    run "G:\My Drive\apps-drivers-saves-portable"
-    return
-}
-^+#d:: {
-    run EnvGet("USERPROFILE") "\Downloads"
-    return
-}
+; --- Folder shortcuts ---
+^!+a::  OpenAppsFolder()
+^+#d::  OpenDownloads()
 
-; Sleep screens
-^!+Esc:: {
-    psScript := psScript := A_ScriptDir "\lib\screenOff.ps1"
-    Run("powershell.exe -ExecutionPolicy Bypass -File `" " psScript "`"",, "Hide")
-}
+; --- System ---
+^!+Esc:: SleepScreens()
 
 ; --- Hotkey quick reference (auto-generated from this file) ---
-^!+/:: ShowTextGui("Hotkey Reference", _BuildHotkeyRef(), 1250, 28)
+^!+/:: ShowTextGui("Hotkey Reference", _BuildHotkeyRef(), 1250, 45)
 
 ; --- Debug: show AltTabSucks profile/window state ---
-^!+l:: {
-    profileMap := GetChromiumProfileDirMap()
+^!+l:: ShowAltTabSucksDebug()
 
-    tabDebug := ""
-    try {
-        http := ComObject("WinHttp.WinHttpRequest.5.1")
-        http.Open("GET", "http://localhost:9876/debugtabs", false)
-        http.SetRequestHeader("X-AltTabSucks-Token", _serverToken)
-        http.Send()
-        if http.Status = 200
-            tabDebug := Trim(StrReplace(http.ResponseText, "`r", ""))
-        else
-            tabDebug := "(HTTP " . http.Status . " - endpoint missing? restart the PS server)"
-        if tabDebug = ""
-            tabDebug := "(store empty - switch any browser tab to trigger a re-post"
-    } catch {
-        tabDebug := "(server not running)"
-    }
+; ---- Local functions ----
 
-    ShowTextGui("AltTabSucks Debug", "=== Profile Directories ===`n" . profileMap . "`n=== Tabs ===`n" . tabDebug, 900, 30)
+OpenAppsFolder() {
+    Run("G:\My Drive\apps-drivers-saves-portable")
 }
 
+OpenDownloads() {
+    Run(EnvGet("USERPROFILE") "\Downloads")
+}
+
+SleepScreens() {
+    psScript := A_ScriptDir "\lib\screenOff.ps1"
+    Run("powershell.exe -ExecutionPolicy Bypass -File `" " psScript "`"",, "Hide")
+}

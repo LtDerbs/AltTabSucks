@@ -65,8 +65,9 @@ ClipboardCmToFtIn() {
     A_Clipboard := num_ft . "' " . Round(num_in, 1) . Chr(34) ; Chr(34) = double quote
 }
 
-; Parses app-hotkeys.ahk and returns a formatted hotkey reference string.
-; Descriptions are derived from FocusTab/ManageAppWindows/Cycle*Profile arguments.
+; Parses app-hotkeys.ahk and returns a formatted hotkey reference string grouped
+; by called function. Section headers are the function name itself — no hardcoded
+; category list. A hotkey appears only if its function has a _Desc* handler.
 _BuildHotkeyRef() {
     content  := FileRead(A_ScriptDir "\lib\app-hotkeys.ahk", "UTF-8")
     lines    := StrSplit(content, "`n", "`r")
@@ -78,7 +79,10 @@ _BuildHotkeyRef() {
         pos := m.Pos + m.Len
     }
 
-    ref     := ""
+    ; Keyed by function name, ordered by first appearance in the file
+    categoryOrder := []
+    categories    := Map()
+
     inBlock := false
     for line in lines {
         trimmed := Trim(line)
@@ -97,10 +101,24 @@ _BuildHotkeyRef() {
         }
         if action = "" || action = "return"
             continue
-        desc := _HotkeyDesc(action, profiles)
+        if !RegExMatch(action, "^(\w+)", &fm)
+            continue
+        funcName := fm[1]
+        desc     := _HotkeyDesc(funcName, action, profiles)
         if desc = ""
             continue
-        ref .= _FormatHotkeyCombo(combo) . "  →  " . desc . "`n"
+        if !categories.Has(funcName) {
+            categoryOrder.Push(funcName)
+            categories[funcName] := []
+        }
+        categories[funcName].Push(_FormatHotkeyCombo(combo) . "  →  " . desc)
+    }
+
+    ref := ""
+    for cat in categoryOrder {
+        ref .= (ref ? "`n" : "") . "── " . cat . " ──`n"
+        for entry in categories[cat]
+            ref .= entry . "`n"
     }
     return Trim(ref)
 }
@@ -125,8 +143,8 @@ _FormatHotkeyCombo(combo) {
          . StrUpper(key)
 }
 
-_HotkeyDesc(action, profiles) {
-    if InStr(action, "FocusTab(") || InStr(action, "FocusTabFirefox(") {
+_HotkeyDesc(funcName, action, profiles) {
+    if funcName = "FocusTab" || funcName = "FocusTabFirefox" {
         all := []
         pos := 1
         while RegExMatch(action, '"([^"]+)"', &m, pos) {
@@ -141,14 +159,22 @@ _HotkeyDesc(action, profiles) {
             patterns .= (patterns ? ", " : "") . RegExReplace(all[A_Index], "^https?://")
         return (patterns ? patterns . "  →  " : "") . openUrl
     }
-    if InStr(action, "ManageAppWindows(") || InStr(action, "ShowTextGui(") {
+    if funcName = "ManageAppWindows" || funcName = "ShowTextGui" {
         if RegExMatch(action, '"([^"]+)"', &m)
             return m[1]
     }
-    if RegExMatch(action, "Cycle\w+Profile\((\w+)\)", &m) {
-        pVar := m[1]
-        return (profiles.Has(pVar) ? profiles[pVar] : pVar) . " (cycle)"
+    if RegExMatch(funcName, "Cycle\w+Profile") {
+        if RegExMatch(action, "\((\w+)\)", &m) {
+            pVar := m[1]
+            return (profiles.Has(pVar) ? profiles[pVar] : pVar) . " (cycle)"
+        }
     }
+    if funcName = "SplitFocusedTab"
+        return "split active tab → new window, snap side-by-side"
+    if funcName = "MergeFocusedWindow"
+        return "merge focused window's tabs → other window"
+    if funcName = "ShowAltTabSucksDebug"
+        return "AltTabSucks debug overlay"
     return ""
 }
 

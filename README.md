@@ -1,6 +1,12 @@
 # AltTabSucks
 
-ATS is the alt-tab of the future. It is a keyboard shortcut based solution for app-specific window focus control and profile-aware URL-based browser tab focus control. Supports Brave, Chrome and Firefox at the moment. Windows only for now.
+ATS is the alt-tab of the future: a keyboard shortcut based solution for app-specific window focus control, profile-aware URL-based browser tab focus control, and more. Supports Brave, Chrome and Firefox at the moment. Windows only for now.
+
+**Features:**
+- **App window management** — cycle or toggle any app's windows with a single hotkey; launch it if it isn't running
+- **Browser tab focus** — jump to a tab by URL pattern for a given browser profile; opens the URL if no matching tab exists
+- **Browser profile cycling** — cycle through all windows for a given browser profile
+- **Split/merge tab snapping** — tear the active tab into its own window and snap both halves side-by-side; merge them back with another hotkey
 
 ---
 
@@ -35,26 +41,32 @@ pwsh -ExecutionPolicy Bypass -File .\installer.ps1 -Action install
 
 Installer will display an auth token - **copy it to clipboard**. (It is also saved to `Server\token.txt` (gitignored) for future reference.)
 
-### 3. Load and configure the browser extension
+### 3. Install and configure the browser extension
 
-   <details>
-   <summary>Chrome/Brave</summary>
+   1. Install the extension:
+      <details>
+      <summary>Chrome-like</summary>
+
+         1. Go to your browser's extensions page (e.g. `brave://extensions`, `chrome://extensions`)
+         1. Enable **Developer mode** (top-right toggle)
+         1. Click **Load unpacked** and select the `AltTabSucks/BrowserExtension` folder
+      </details>
+
+      <details>
+      <summary>Firefox</summary>
    
-   1. Go to your browser's extensions page (e.g. `brave://extensions`, `chrome://extensions`)
-   1. Enable **Developer mode** (top-right toggle)
-   1. Click **Load unpacked** and select the `BrowserExtension/` folder
-   </details>
-   <details>
-   <summary>Firefox</summary>
-   
-   1. Go to `about:addons`
-   1. Install AltTabSucks.xpi 
-   1. Open the extension **Options** and set two fields: 
-      * Auth token - Paste the auth token from copied from prior step, then refresh the next field's dropdown.
-      * Profile dropdown - after saving the auth token, refresh the profile list and select the current active profile name.
-   </details>
-            
-      After the first install, everything starts automatically at logon. To reload the AHK script manually: `Ctrl+Alt+Shift+'`.
+      1. Go to `about:addons`
+      1. Install `AltTabSucks/AltTabSucks-firefox.xpi`
+      </details>
+
+   Then open the extension **Options** and set two fields:
+   * **Auth token** — paste the token copied from the prior step, then refresh the next field's dropdown
+   * **Profile name** — select the active profile name from the dropdown
+     * to figure out the active profile name:
+         * Firefox: Open **about:profiles**
+         * Chrome-like: the top-right Profile menu dropdown displays the active profile name
+
+   After the first install, everything starts automatically at logon. To reload the AHK script manually: `Ctrl+Alt+Shift+'`.
 
 
 
@@ -63,7 +75,7 @@ Installer will display an auth token - **copy it to clipboard**. (It is also sav
 
 1. Set the P1 var value to the same profile name as set in the extension options. P2 can be set for a second browser profile if you use one.
    * Note: Depending how you have your applications installed, some of the included app paths included may need editing.
-1. Open your browser, create a new tab to hydrate the extension's localserver
+1. Open your browser and switch tabs to hydrate the extension's localserver
    * **Press Ctrl+Alt+Shift+/** (forward slash) **to see a quick reference for all mapped hotkeys**
    * Press Ctrl+Alt+Shift+L to see a debug readout of your current tabs' states
 1. Come back to this file any time to edit hotkey triggers, add apps, urls, etc as desired.

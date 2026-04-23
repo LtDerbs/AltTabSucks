@@ -1,6 +1,6 @@
 app-hotkeys.ahk
 config.ahk
-CLAUDE.md
 token.txt
 Server/token.txt
 .amo-credentials
+lib/star-citizen.ahk

@@ -618,6 +618,26 @@ RunChromiumProfile(profileName) {
     return true
 }
 
+ShowAltTabSucksDebug() {
+    profileMap := GetChromiumProfileDirMap()
+    tabDebug   := ""
+    try {
+        http := ComObject("WinHttp.WinHttpRequest.5.1")
+        http.Open("GET", "http://localhost:9876/debugtabs", false)
+        http.SetRequestHeader("X-AltTabSucks-Token", _serverToken)
+        http.Send()
+        if http.Status = 200
+            tabDebug := Trim(StrReplace(http.ResponseText, "`r", ""))
+        else
+            tabDebug := "(HTTP " . http.Status . " - endpoint missing? restart the PS server)"
+        if tabDebug = ""
+            tabDebug := "(store empty - switch any browser tab to trigger a re-post)"
+    } catch {
+        tabDebug := "(server not running)"
+    }
+    ShowTextGui("AltTabSucks Debug", "=== Profile Directories ===`n" . profileMap . "`n=== Tabs ===`n" . tabDebug, 900, 30)
+}
+
 ; Moves all tabs from the focused Chromium window into the other window for the same
 ; profile, then lets the browser close the now-empty source window automatically.
 ; Does nothing if the focused window is not a browser window, profile cannot be detected,
