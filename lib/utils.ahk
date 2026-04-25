@@ -182,9 +182,9 @@ _HotkeyDesc(funcName, action, profiles) {
 ;
 ; processName  - executable name, e.g. "notepad++.exe"
 ; exePath      - path to launch when no windows exist; pass "" to do nothing
-; mode         - "cycle"  : 1 window -> toggle minimize/activate;
-;                           2+ windows -> activate the next, wrapping around;
-;                           0 windows -> launch exePath
+; mode         - "cycle"  : advance through all windows (visible then minimized),
+;                           wrapping around; restores minimized windows as they
+;                           come up in rotation; 0 windows -> launch exePath
 ;              - "toggle" : focus the app if it isn't active; minimize all its
 ;                           visible windows if one of them is currently active
 ;
@@ -194,12 +194,12 @@ ManageAppWindows(processName, exePath := "", mode := "cycle") {
     ;   - WS_VISIBLE (excludes hidden background windows e.g. Discord tray)
     ;   - unowned (excludes dialogs/toolbars owned by a main window e.g. Notepad++ Find)
     ; DetectHiddenWindows is ON globally, so we must filter manually.
-    visible := []   ; WS_VISIBLE, unowned, not minimized
-    minimized := [] ; WS_VISIBLE, unowned, minimized
+    visible := []
+    minimized := []
     for hwnd in WinGetList("ahk_exe " processName) {
         if !(WinGetStyle("ahk_id " hwnd) & 0x10000000)  ; not WS_VISIBLE
             continue
-        if DllCall("GetWindow", "Ptr", hwnd, "UInt", 4, "Ptr") != 0  ; owned window (dialog etc.)
+        if DllCall("GetWindow", "Ptr", hwnd, "UInt", 4, "Ptr") != 0  ; owned window
             continue
         if WinGetMinMax("ahk_id " hwnd) = -1
             minimized.Push(hwnd)
@@ -216,51 +216,52 @@ ManageAppWindows(processName, exePath := "", mode := "cycle") {
         return
     }
 
-    activeHwnd := WinGetID("A")
+    activeHwnd := 0
+    try activeHwnd := WinGetID("A")
 
     if mode = "toggle" {
+        ; Use process name to detect ownership — more reliable than HWND matching when
+        ; privilege level differences cause some windows to be missed in visible/minimized.
         isMine := false
-        for hwnd in visible
-            if hwnd = activeHwnd {
-                isMine := true
-                break
-            }
+        try isMine := (WinGetProcessName("A") = processName)
+        if !isMine {
+            for hwnd in visible
+                if hwnd = activeHwnd {
+                    isMine := true
+                    break
+                }
+        }
         if isMine {
             for hwnd in visible
                 WinMinimize("ahk_id " hwnd)
-        } else if visible.Length > 0 {
-            WinActivate("ahk_id " visible[1])
         } else {
-            WinRestore("ahk_id " minimized[1])
-            WinActivate("ahk_id " minimized[1])
+            for hwnd in minimized
+                WinRestore("ahk_id " hwnd)
+            if visible.Length > 0
+                WinActivate("ahk_id " visible[1])
+            else if minimized.Length > 0
+                WinActivate("ahk_id " minimized[1])
         }
         return
     }
 
-    ; cycle: no visible windows -> restore MRU minimized one
-    if visible.Length = 0 {
-        WinRestore("ahk_id " minimized[1])
-        WinActivate("ahk_id " minimized[1])
-        return
-    }
+    ; cycle: advance through all windows (visible first, then minimized), wrapping around
+    all := []
+    for hwnd in visible
+        all.Push(hwnd)
+    for hwnd in minimized
+        all.Push(hwnd)
 
-    ; cycle: single visible window -> toggle minimize/activate
-    if visible.Length = 1 {
-        if visible[1] = activeHwnd
-            WinMinimize("ahk_id " visible[1])
-        else
-            WinActivate("ahk_id " visible[1])
-        return
-    }
-
-    ; cycle: multiple visible windows -> advance to next, wrapping around
     activeIdx := 0
-    for i, hwnd in visible
+    for i, hwnd in all
         if hwnd = activeHwnd {
             activeIdx := i
             break
         }
 
-    nextIdx := Mod(activeIdx, visible.Length) + 1
-    WinActivate("ahk_id " visible[nextIdx])
+    nextIdx := Mod(activeIdx, all.Length) + 1
+    nextHwnd := all[nextIdx]
+    if WinGetMinMax("ahk_id " nextHwnd) = -1
+        WinRestore("ahk_id " nextHwnd)
+    WinActivate("ahk_id " nextHwnd)
 }

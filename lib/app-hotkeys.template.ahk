@@ -12,6 +12,7 @@ P2 := "Profile 1"
 ^!+z:: FocusTab(P2, ["YOUR_URL"],             "https://YOUR_URL")
 ^!+r:: FocusTab(P1, ["YOUR_URL"],          "https://YOUR_URL")
 ^+#c:: FocusTab(P1, ["YOUR_URL"], "https://YOUR_URL")
+^!+d:: ManageAppWindows("YOUR_URL", EnvGet("USERPROFILE") "\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Discord Inc\Discord")
 ;--- END SENSITIVE ---
 
 ; --- BEGIN COMMON ---
@@ -46,12 +47,13 @@ P2 := "Profile 1"
 
 ; --- App window management --- (UNIVERSAL)
 ; REGULAR APPS
-^!+n:: ManageAppWindows("notepad++.exe", "C:\ProgramData\Microsoft\Windows\Start Menu\Programs", "toggle")
-^!+d:: ManageAppWindows("discord.exe", EnvGet("USERPROFILE") "\AppData\Roaming\Microsoft\Windows\Start Menu\Programs\Discord Inc\Discord")
+^!+n:: ManageAppWindows("notepad++.exe", "C:\ProgramData\Microsoft\Windows\Start Menu\Programs\notepad++", "toggle")
+
 ^!+e:: ManageAppWindows("code.exe", EnvGet("USERPROFILE") "\AppData\Local\Programs\Microsoft VS Code\Code.exe", "cycle")
 ; APP STORE APPS - use this ps1 cmd to find needed appId (replace "*Claude" with the app you need):
 ; (New-Object -ComObject Shell.Application).NameSpace('shell:AppsFolder').Items() | Where-Object { $_.Name -like '*Claude*' } | Select-Object Name, Path, @{N='AppId'; E={$_.ExtendedProperty('System.AppUserModel.ID')}}
 ^!+c:: ManageAppWindows("claude.exe", () => LaunchStoreApp("Claude_pzs8sxrjxfjjc!Claude"), "toggle")
+^!+w:: ManageAppWindows("Calculator.exe", () => LaunchStoreApp("Microsoft.WindowsCalculator_8wekyb3d8bbwe!App"), "toggle")
 
 ; --- Folder shortcuts ---
 ^!+a::  OpenAppsFolder()
